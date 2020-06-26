@@ -317,19 +317,20 @@ else {
                 Write-au2matorLog -Type Info -Text "Move Zip to Destination"
                 Move-Item -Path $StagedZip -Destination $Destination
 
-                if ($ClearStaging) {
-                    Write-au2matorLog -Type Info -Text "Clear Staging"
-                    Get-ChildItem -Path $StagingDir -Recurse -Force | remove-item -Confirm:$False -Recurse -force
-                }
-
             } else {
                 sz a -t7z ($Destination + ("\" + $BackupDir.Replace($Destination, '').Replace('\', '') + ".zip")) $BackupDir
             }
                 
-        } else {
+        } else {  # Use powershell-native compression
             Write-au2matorLog -Type Info -Text "Use Powershell Compress-Archive"
             Compress-Archive -Path $BackupDir -DestinationPath ($Destination + ("\" + $BackupDir.Replace($Destination, '').Replace('\', '') + ".zip")) -CompressionLevel Optimal -Force
 
+        }
+
+        # Clean-up Staging
+        if ($ClearStaging) {
+            Write-au2matorLog -Type Info -Text "Clear Staging"
+            Get-ChildItem -Path $StagingDir -Recurse -Force | remove-item -Confirm:$False -Recurse -force
         }
 
         If ($RemoveBackupDestination) {
