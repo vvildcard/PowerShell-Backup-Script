@@ -34,11 +34,11 @@
 
 Param(
     # Source/Dest
-    [Parameter(Mandatory=$True)][string[]]$BackupDirs, # Folders you want to backup. Comma-delimited. 
+    [Parameter(Mandatory=$True)][string[]][Alias("b","s")]$BackupDirs, # Folders you want to backup. Comma-delimited. 
         # To hard-code the source paths, set the above line to: $BackupDirs = @("C:\path\to\backup", "C:\another\path\")
-    [string[]]$ExcludeDirs=@("$env:SystemDrive\Users\.*\AppData\Local", "$env:SystemDrive\Users\.*\AppData\LocalLow"), # This list of Directories will not be copied. Comma-delimited. 
-    [Parameter(Mandatory=$True)][string]$Destination, # Backup to this path. Can be a UNC path (\\server\share)
+    [Parameter(Mandatory=$True)][string][Alias("d")]$Destination, # Backup to this path. Can be a UNC path (\\server\share)
         # To hard-code the destination, set the above line to: $Destination = "C:\path\to\put\the\backup"
+    [string[]]$ExcludeDirs=@("$env:SystemDrive\Users\.*\AppData\Local", "$env:SystemDrive\Users\.*\AppData\LocalLow"), # This list of Directories will not be copied. Comma-delimited. 
 
     # Logging
     [string]$TempDir = "$env:TEMP\BackupScript", # Temporary location for logging and zipping. 
