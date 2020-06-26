@@ -80,13 +80,14 @@ foreach ($Entry in $ExcludeDirs) {
 $ExcludeString = $ExcludeString.Substring(0, $ExcludeString.Length - 1)
 [RegEx]$exclude = $ExcludeString
 
+# Name the backup directory ($BackupDir)
 if ($UseStaging -and $Zip) {
     # Logging "INFO" "Use Temp Backup Dir"
-    $BackupDir = "$StagingDir\Backup-" + (Get-Date -format yyyy-MM-dd-mmss)# + "-" + (Get-Random -Maximum 100000) + "\"
-}
-else {
+    $ZipFileName = "Backup-$(Get-Date -format yyyy-MM-dd-mmss).zip"
+    $BackupDir = "$StagingDir\$ZipFileName"
+} else {
     # Logging "INFO" "Use orig Backup Dir"
-    $BackupDir = "$Destination\Backup-" + (Get-Date -format yyyy-MM-dd-mmss)# + "-" + (Get-Random -Maximum 100000) + "\"
+    $BackupDir = "$Destination\Backup-$(Get-Date -format yyyy-MM-dd-mmss)"
 }
 
 # Counters
@@ -128,19 +129,17 @@ function Write-au2matorLog {
         Add-Content -Path $logFile -Value $logEntry
     }
     if ($LoggingLevel -eq "3") { Write-Host $Text }
-    
-    
 }
 
 
-# Create BackupDir
+# Create the BackupDir
 Function New-BackupDir {
     New-Item -Path $BackupDir -ItemType Directory | Out-Null
     Start-sleep -Seconds 5
     Write-au2matorLog -Type Info -Text "Create new directory: $BackupDir"
 }
 
-# Delete BackupDir
+# Delete the BackupDir
 Function Remove-BackupDir {
     $Folder = Get-ChildItem $Destination | where { $_.Attributes -eq "Directory" } | Sort-Object -Property CreationTime -Descending:$False | Select-Object -First 1
 
@@ -298,7 +297,6 @@ else {
 
     if ($Zip) {
         Write-au2matorLog -Type Info -Text "Compress the Backup Destination"
-        
         if ($Use7ZIP) {
             Write-au2matorLog -Type Info -Text "Use 7-Zip"
             if (test-path $7zPath) { 
@@ -310,21 +308,24 @@ else {
                 Write-au2matorLog -Type Warning -Text "7-Zip not found. Aborting!" 
             }
 
-            if ($UseStaging -and $Zip) {
-                $StagedZip = $StagingDir + ("\" + $BackupDir.Replace($StagingDir, '').Replace('\', '') + ".zip")
-                sz a -t7z $StagingZip $BackupDir
-                
+            if ($UseStaging) { # Zip to the staging directory, then move to the destination.
+                # Usage: sz a -t7z <archive.zip> <source1> <source2> <sourceX>
+                sz a -t7z "$StagingDir\$ZipFileName" $BackupDir
                 Write-au2matorLog -Type Info -Text "Move Zip to Destination"
-                Move-Item -Path $StagedZip -Destination $Destination
+                Move-Item -Path "$StagingDir\$ZipFileName" -Destination $Destination
 
-            } else {
-                sz a -t7z ($Destination + ("\" + $BackupDir.Replace($Destination, '').Replace('\', '') + ".zip")) $BackupDir
+            } else { # Zip straight to the destination. 
+                sz a -t7z "$Destination\$ZipFileName" $BackupDir
             }
-                
+            
         } else {  # Use powershell-native compression
             Write-au2matorLog -Type Info -Text "Use Powershell Compress-Archive"
-            Compress-Archive -Path $BackupDir -DestinationPath ($Destination + ("\" + $BackupDir.Replace($Destination, '').Replace('\', '') + ".zip")) -CompressionLevel Optimal -Force
-
+            if ($UseStaging) { # Zip to the staging directory, then move to the destination.
+                Compress-Archive -Path $BackupDir -DestinationPath "$StagingDir\$ZipFileName"  -CompressionLevel Optimal -Force
+                Move-Item -Path "$StagingDir\$ZipFileName" -Destination $Destination
+            } else { # Zip straight to the destination. 
+                Compress-Archive -Path $BackupDir -DestinationPath "$Destination\$ZipFileName"  -CompressionLevel Optimal -Force
+            }
         }
 
         # Clean-up Staging
