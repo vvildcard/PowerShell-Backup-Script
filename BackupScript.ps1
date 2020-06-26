@@ -12,10 +12,11 @@
 #
 #
 # Description: 
-# Copies one or more Backupdirs to the Destination.
+# Copies one or more BackupDirs to the Destination.
 # A Progress Bar shows the status of copied MB to the total MB.
 # 
 # Usage:
+# BackupScript.ps1 -BackupDirs "C:\path\to\backup", "C:\another\path\" -Destination "C:\path\to\put\the\backup"
 # Change variables in the Variables section.
 # Change LoggingLevel to 3 an get more output in Powershell Windows.
 # 
@@ -31,38 +32,37 @@
 
 ### Variables
 
-# Source/Dest
-$BackupDirs = # Folders you want to backup. Comma-delimited. 
-    "$env:USERPROFILE\Documents"
-$ExcludeDirs = # This list of Directories will not be copied. Comma-delimited. 
-    "$env:SystemDrive\Users\.*\AppData\Local", 
-    "$env:SystemDrive\Users\.*\AppData\LocalLow"
-$Destination = # Backup to this path. Can be a UNC path (\\server\share)
-    "$env:USERPROFILE\Backup"
+Param(
+    # Source/Dest
+    [Parameter(Mandatory=$True)][string]$BackupDirs, # Folders you want to backup. Comma-delimited. 
+        # To hard-code the source paths, set the above line to: $BackupDirs = "C:\path\to\backup", "C:\another\path\"
+    [string]$ExcludeDirs=("$env:SystemDrive\Users\.*\AppData\Local", "$env:SystemDrive\Users\.*\AppData\LocalLow"), # This list of Directories will not be copied. Comma-delimited. 
+    [Parameter(Mandatory=$True)][string]$Destination, # Backup to this path. Can be a UNC path (\\server\share)
+        # To hard-code the destination, set the above line to: $Destination = "C:\path\to\put\the\backup"
 
-# Logging
-$TempDir = "$env:TEMP\$($PSscript.BaseName)" # Temporary location for logging and zipping. 
-$LogPath = "$TempDir\Logging"
-$LogFileName = "Log" #  Name
-$LoggingLevel = "3" # LoggingLevel only for Output in Powershell Window, 1=smart, 3=Heavy
+    # Logging
+    [string]$TempDir = "$env:TEMP\BackupScript", # Temporary location for logging and zipping. 
+    [string]$LogPath = "$TempDir\Logging",
+    [string]$LogFileName = "Log", #  Name
+    [string]$LoggingLevel = "3", # LoggingLevel only for Output in Powershell Window, 1=smart, 3=Heavy
 
-# Zip
-$Zip = $true # Zip the backup. 
-$Use7ZIP = $false # Make sure 7-Zip is installed. (https://7-zip.org)
-$7zPath = "$env:ProgramFiles\7-Zip\7z.exe"
-$RemoveBackupDestination = $false # Delete BackupDirs after Zip. Only used if $Zip is $true. USE AT YOUR OWN RISK!
-$Versions = "15" # Number of backups you want to keep. 
-$UseStaging = $true # Only used if you use Zip. If $true: Copy file to Staging, zip it and copy the zip to destination. 
-$StagingDir = "$TempDir\Staging" # Temporary location zipping. 
-$ClearStaging = $true # If $true: Delete StagingDir after backup. 
+    # Zip
+    [bool]$Zip = $True, # Zip the backup. 
+    [bool]$Use7ZIP = $False, # Make sure 7-Zip is installed. (https://7-zip.org)
+    [string]$7zPath = "$env:ProgramFiles\7-Zip\7z.exe",
+    [bool]$RemoveBackupDestination = $False, # Delete BackupDirs after Zip. Only used if $Zip is $True. USE AT YOUR OWN RISK!
+    [string]$Versions = "15", # Number of backups you want to keep. 
+    [bool]$UseStaging = $True, # Only used if you use Zip. If $True: Copy file to Staging, zip it and copy the zip to destination. 
+    [string]$StagingDir = "$TempDir\Staging", # Temporary location zipping. 
+    [bool]$ClearStaging = $True, # If $True: Delete StagingDir after backup. 
 
-
-### Email
-$SendEmail = $false # $true will send report via email (SMTP send)
-$EmailTo = 'test@domain.com' # List of recipients. For multiple users, use "User01 &lt;user01@example.com&gt;" ,"User02 &lt;user02@example.com&gt;"
-$EmailFrom = 'from@domain.com' # Sender/ReplyTo
-$EmailSMTP = 'smtp.domain.com' # SMTP server address
-
+    # Email
+    [bool]$SendEmail = $False, # $True will send report via email (SMTP send)
+    [string]$EmailTo = 'test@domain.com', # List of recipients. For multiple users, use "User01 &lt;user01@example.com&gt;" ,"User02 &lt;user02@example.com&gt;"
+    [string]$EmailFrom = 'from@domain.com', # Sender/ReplyTo
+    [string]$EmailSMTP = 'smtp.domain.com' # SMTP server address
+)
+write-host "Destination = $($Destination)"
 
 ### STOP - No changes from here
 ### STOP - No changes from here
@@ -83,11 +83,11 @@ $ExcludeString = $ExcludeString.Substring(0, $ExcludeString.Length - 1)
 
 if ($UseStaging -and $Zip) {
     # Logging "INFO" "Use Temp Backup Dir"
-    $Backupdir = $StagingDir + "\Backup-" + (Get-Date -format yyyy-MM-dd) + "-" + (Get-Random -Maximum 100000) + "\"
+    $BackupDir = "$StagingDir\Backup-" + (Get-Date -format yyyy-MM-dd) + "-" + (Get-Random -Maximum 100000) + "\"
 }
 else {
     # Logging "INFO" "Use orig Backup Dir"
-    $Backupdir = $Destination + "\Backup-" + (Get-Date -format yyyy-MM-dd) + "-" + (Get-Random -Maximum 100000) + "\"
+    $BackupDir = "$Destination\Backup-" + (Get-Date -format yyyy-MM-dd) + "-" + (Get-Random -Maximum 100000) + "\"
 }
 
 # Counters
@@ -134,16 +134,16 @@ function Write-au2matorLog {
 }
 
 
-# Create Backupdir
-Function New-Backupdir {
-    New-Item -Path $Backupdir -ItemType Directory | Out-Null
+# Create BackupDir
+Function New-BackupDir {
+    New-Item -Path $BackupDir -ItemType Directory | Out-Null
     Start-sleep -Seconds 5
-    Write-au2matorLog -Type Info -Text "Create Backupdir $Backupdir"
+    Write-au2matorLog -Type Info -Text "Create BackupDir $BackupDir"
 }
 
-# Delete Backupdir
-Function Remove-Backupdir {
-    $Folder = Get-ChildItem $Destination | where { $_.Attributes -eq "Directory" } | Sort-Object -Property CreationTime -Descending:$false | Select-Object -First 1
+# Delete BackupDir
+Function Remove-BackupDir {
+    $Folder = Get-ChildItem $Destination | where { $_.Attributes -eq "Directory" } | Sort-Object -Property CreationTime -Descending:$False | Select-Object -First 1
 
     Write-au2matorLog -Type Info -Text "Remove Dir: $Folder"
     
@@ -153,22 +153,22 @@ Function Remove-Backupdir {
 
 # Delete Zip
 Function Remove-Zip {
-    $Zip = Get-ChildItem $Destination | where { $_.Attributes -eq "Archive" -and $_.Extension -eq ".zip" } | Sort-Object -Property CreationTime -Descending:$false | Select-Object -First 1
+    $Zip = Get-ChildItem $Destination | where { $_.Attributes -eq "Archive" -and $_.Extension -eq ".zip" } | Sort-Object -Property CreationTime -Descending:$False | Select-Object -First 1
 
     Write-au2matorLog -Type Info -Text "Remove Zip: $Zip"
     
     $Zip.FullName | Remove-Item -Recurse -Force 
 }
 
-# Check if Backupdirs and Destination is available
+# Check if BackupDirs and Destination is available
 function Check-Dir {
     Write-au2matorLog -Type Info -Text "Check if BackupDir and Destination exists"
     if (!(Test-Path $BackupDirs)) {
-        return $false
+        return $False
         Write-au2matorLog -Type Error -Text "$BackupDirs does not exist"
     }
     if (!(Test-Path $Destination)) {
-        return $false
+        return $False
         Write-au2matorLog -Type Error -Text "$Destination does not exist"
     }
 }
@@ -198,7 +198,7 @@ Function Make-Backup {
 
         $colItems = ($Files | Measure-Object -property length -sum) 
         $Items = 0
-        Copy-Item -LiteralPath $Backup -Destination $Backupdir -Force -ErrorAction SilentlyContinue | Where-Object { $_.FullName -notmatch $exclude }
+        Copy-Item -LiteralPath $Backup -Destination $BackupDir -Force -ErrorAction SilentlyContinue | Where-Object { $_.FullName -notmatch $exclude }
         $SumMB += $colItems.Sum.ToString()
         $SumItems += $colItems.Count
     }
@@ -223,8 +223,8 @@ Function Make-Backup {
             $restpath = $file.fullname.replace($SplitBackup, "")
             try {
                 # Use New-Item to create the destination directory if it doesn't yet exist. Then copy the file.
-                New-Item -Path (Split-Path -Path $($Backupdir + $restpath) -Parent) -ItemType "directory" -Force -ErrorAction SilentlyContinue | Out-Null
-                Copy-Item -LiteralPath $file.fullname $($Backupdir + $restpath) -Force -ErrorAction SilentlyContinue | Out-Null
+                New-Item -Path (Split-Path -Path $($BackupDir + $restpath) -Parent) -ItemType "directory" -Force -ErrorAction SilentlyContinue | Out-Null
+                Copy-Item -LiteralPath $file.fullname $($BackupDir + $restpath) -Force -ErrorAction SilentlyContinue | Out-Null
                 Write-au2matorLog -Type Info -Text $("'" + $File.FullName + "' was copied")
             }
             catch {
@@ -247,7 +247,7 @@ Function Make-Backup {
 
 
     # Send e-mail with reports as attachments
-    if ($SendEmail -eq $true) {
+    if ($SendEmail -eq $True) {
         $EmailSubject = "Backup Email $(get-date -format MM.yyyy)"
         $EmailBody = "Backup Script $(get-date -format MM.yyyy) (last Month).`nYours sincerely `Matthew - SYSTEM ADMINISTRATOR"
         Write-au2matorLog -Type Info -Text "Sending e-mail to $EmailTo from $EmailFrom (SMTPServer = $EmailSMTP) "
@@ -258,22 +258,22 @@ Function Make-Backup {
 
 # Create Backup Dir
 
-New-Backupdir
+New-BackupDir
 Write-au2matorLog -Type Info -Text "----------------------"
 Write-au2matorLog -Type Info -Text "Start the Script"
 
-# Check if Backupdir needs to be cleaned and create Backupdir
+# Check if BackupDir needs to be cleaned and create BackupDir
 $Count = (Get-ChildItem $Destination | where { $_.Attributes -eq "Directory" }).count
-Write-au2matorLog -Type Info -Text "Check if there are more than $Versions Directories in the Backupdir"
+Write-au2matorLog -Type Info -Text "Check if there are more than $Versions Directories in the BackupDir"
 
 if ($count -gt $Versions) {
     Write-au2matorLog -Type Info -Text "Found $count Backups"
-    Remove-Backupdir
+    Remove-BackupDir
 }
 
 
 $CountZip = (Get-ChildItem $Destination | where { $_.Attributes -eq "Archive" -and $_.Extension -eq ".zip" }).count
-Write-au2matorLog -Type Info -Text "Check if there are more than $Versions Zip in the Backupdir"
+Write-au2matorLog -Type Info -Text "Check if there are more than $Versions Zip in the BackupDir"
 
 if ($CountZip -gt $Versions) {
 
@@ -284,7 +284,7 @@ if ($CountZip -gt $Versions) {
 # Check if all Dir are existing and do the Backup
 $CheckDir = Check-Dir
 
-if ($CheckDir -eq $false) {
+if ($CheckDir -eq $False) {
     Write-au2matorLog -Type Error -Text "One of the Directories are not available, Script has stopped"
 }
 else {
@@ -313,24 +313,24 @@ else {
             }
 
             if ($UseStaging -and $Zip) {
-                $Zip = $StagingDir + ("\" + $Backupdir.Replace($StagingDir, '').Replace('\', '') + ".zip")
-                sz a -t7z $Zip $Backupdir
+                $Zip = $StagingDir + ("\" + $BackupDir.Replace($StagingDir, '').Replace('\', '') + ".zip")
+                sz a -t7z $Zip $BackupDir
                 
                 Write-au2matorLog -Type Info -Text "Move Zip to Destination"
                 Move-Item -Path $Zip -Destination $Destination
 
                 if ($ClearStaging) {
                     Write-au2matorLog -Type Info -Text "Clear Staging"
-                    Get-ChildItem -Path $StagingDir -Recurse -Force | remove-item -Confirm:$false -Recurse -force
+                    Get-ChildItem -Path $StagingDir -Recurse -Force | remove-item -Confirm:$False -Recurse -force
                 }
 
             } else {
-                sz a -t7z ($Destination + ("\" + $Backupdir.Replace($Destination, '').Replace('\', '') + ".zip")) $Backupdir
+                sz a -t7z ($Destination + ("\" + $BackupDir.Replace($Destination, '').Replace('\', '') + ".zip")) $BackupDir
             }
                 
         } else {
             Write-au2matorLog -Type Info -Text "Use Powershell Compress-Archive"
-            Compress-Archive -Path $Backupdir -DestinationPath ($Destination + ("\" + $Backupdir.Replace($Destination, '').Replace('\', '') + ".zip")) -CompressionLevel Optimal -Force
+            Compress-Archive -Path $BackupDir -DestinationPath ($Destination + ("\" + $BackupDir.Replace($Destination, '').Replace('\', '') + ".zip")) -CompressionLevel Optimal -Force
 
         }
 
@@ -338,8 +338,8 @@ else {
             Write-au2matorLog -Type Info -Text "$Duration"
 
             # Remove-Item -Path $BackupDir -Force -Recurse 
-            get-childitem -Path $BackupDir -recurse -Force | remove-item -Confirm:$false -Recurse
-            get-item -Path $BackupDir | remove-item -Confirm:$false -Recurse
+            get-childitem -Path $BackupDir -recurse -Force | remove-item -Confirm:$False -Recurse
+            get-item -Path $BackupDir | remove-item -Confirm:$False -Recurse
         }
     }
 }
