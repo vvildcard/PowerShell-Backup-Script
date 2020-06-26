@@ -34,9 +34,9 @@
 
 Param(
     # Source/Dest
-    [Parameter(Mandatory=$True)][string]$BackupDirs, # Folders you want to backup. Comma-delimited. 
-        # To hard-code the source paths, set the above line to: $BackupDirs = "C:\path\to\backup", "C:\another\path\"
-    [string]$ExcludeDirs=("$env:SystemDrive\Users\.*\AppData\Local", "$env:SystemDrive\Users\.*\AppData\LocalLow"), # This list of Directories will not be copied. Comma-delimited. 
+    [Parameter(Mandatory=$True)][string[]]$BackupDirs, # Folders you want to backup. Comma-delimited. 
+        # To hard-code the source paths, set the above line to: $BackupDirs = @("C:\path\to\backup", "C:\another\path\")
+    [string[]]$ExcludeDirs=@("$env:SystemDrive\Users\.*\AppData\Local", "$env:SystemDrive\Users\.*\AppData\LocalLow"), # This list of Directories will not be copied. Comma-delimited. 
     [Parameter(Mandatory=$True)][string]$Destination, # Backup to this path. Can be a UNC path (\\server\share)
         # To hard-code the destination, set the above line to: $Destination = "C:\path\to\put\the\backup"
 
@@ -62,7 +62,6 @@ Param(
     [string]$EmailFrom = 'from@domain.com', # Sender/ReplyTo
     [string]$EmailSMTP = 'smtp.domain.com' # SMTP server address
 )
-write-host "Destination = $($Destination)"
 
 ### STOP - No changes from here
 ### STOP - No changes from here
@@ -83,11 +82,11 @@ $ExcludeString = $ExcludeString.Substring(0, $ExcludeString.Length - 1)
 
 if ($UseStaging -and $Zip) {
     # Logging "INFO" "Use Temp Backup Dir"
-    $BackupDir = "$StagingDir\Backup-" + (Get-Date -format yyyy-MM-dd) + "-" + (Get-Random -Maximum 100000) + "\"
+    $BackupDir = "$StagingDir\Backup-" + (Get-Date -format yyyy-MM-dd-mmss)# + "-" + (Get-Random -Maximum 100000) + "\"
 }
 else {
     # Logging "INFO" "Use orig Backup Dir"
-    $BackupDir = "$Destination\Backup-" + (Get-Date -format yyyy-MM-dd) + "-" + (Get-Random -Maximum 100000) + "\"
+    $BackupDir = "$Destination\Backup-" + (Get-Date -format yyyy-MM-dd-mmss)# + "-" + (Get-Random -Maximum 100000) + "\"
 }
 
 # Counters
@@ -138,14 +137,14 @@ function Write-au2matorLog {
 Function New-BackupDir {
     New-Item -Path $BackupDir -ItemType Directory | Out-Null
     Start-sleep -Seconds 5
-    Write-au2matorLog -Type Info -Text "Create BackupDir $BackupDir"
+    Write-au2matorLog -Type Info -Text "Create new directory: $BackupDir"
 }
 
 # Delete BackupDir
 Function Remove-BackupDir {
     $Folder = Get-ChildItem $Destination | where { $_.Attributes -eq "Directory" } | Sort-Object -Property CreationTime -Descending:$False | Select-Object -First 1
 
-    Write-au2matorLog -Type Info -Text "Remove Dir: $Folder"
+    Write-au2matorLog -Type Info -Text "Remove directory: $Folder"
     
     $Folder.FullName | Remove-Item -Recurse -Force 
 }
@@ -153,11 +152,11 @@ Function Remove-BackupDir {
 
 # Delete Zip
 Function Remove-Zip {
-    $Zip = Get-ChildItem $Destination | where { $_.Attributes -eq "Archive" -and $_.Extension -eq ".zip" } | Sort-Object -Property CreationTime -Descending:$False | Select-Object -First 1
+    $RemoveZip = Get-ChildItem $Destination | where { $_.Attributes -eq "Archive" -and $_.Extension -eq ".zip" } | Sort-Object -Property CreationTime -Descending:$False | Select-Object -First 1
 
-    Write-au2matorLog -Type Info -Text "Remove Zip: $Zip"
+    Write-au2matorLog -Type Info -Text "Remove zip: $RemoveZip"
     
-    $Zip.FullName | Remove-Item -Recurse -Force 
+    $RemoveZip.FullName | Remove-Item -Recurse -Force 
 }
 
 # Check if BackupDirs and Destination is available
@@ -257,7 +256,6 @@ Function Make-Backup {
 }
 
 # Create Backup Dir
-
 New-BackupDir
 Write-au2matorLog -Type Info -Text "----------------------"
 Write-au2matorLog -Type Info -Text "Start the Script"
@@ -313,11 +311,11 @@ else {
             }
 
             if ($UseStaging -and $Zip) {
-                $Zip = $StagingDir + ("\" + $BackupDir.Replace($StagingDir, '').Replace('\', '') + ".zip")
-                sz a -t7z $Zip $BackupDir
+                $StagedZip = $StagingDir + ("\" + $BackupDir.Replace($StagingDir, '').Replace('\', '') + ".zip")
+                sz a -t7z $StagingZip $BackupDir
                 
                 Write-au2matorLog -Type Info -Text "Move Zip to Destination"
-                Move-Item -Path $Zip -Destination $Destination
+                Move-Item -Path $StagedZip -Destination $Destination
 
                 if ($ClearStaging) {
                     Write-au2matorLog -Type Info -Text "Clear Staging"
