@@ -246,8 +246,11 @@ Function Make-Backup {
 
     # Send e-mail with reports as attachments
     if ($SendEmail -eq $True) {
-        $EmailSubject = "Backup Email $(get-date -format MM.yyyy)"
-        $EmailBody = "Backup Script $(get-date -format MM.yyyy) (last Month).`nYours sincerely `Matthew - SYSTEM ADMINISTRATOR"
+        $EmailSubject = "$env:COMPUTERNAME - Backup on $(get-date -format yyyy.MM.dd)"
+        $EmailBody = "Backup Script $(get-date -format yyyy.MM.dd) (last Month).`n
+                      Computer: $env:COMPUTERNAME`n
+                      Source(s): $BackupDirs`n
+                      Backup Location: $Destination"
         Write-au2matorLog -Type Info -Text "Sending e-mail to $EmailTo from $EmailFrom (SMTPServer = $EmailSMTP) "
         # The attachment is $log 
         Send-MailMessage -To $EmailTo -From $EmailFrom -Subject $EmailSubject -Body $EmailBody -SmtpServer $EmailSMTP -attachment $Log 
