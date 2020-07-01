@@ -94,7 +94,7 @@ if ($UseStaging -and $Zip) {
 $Items = 0
 $Count = 0
 $ErrorCount = 0
-$StartDate = Get-Date #-format dd.MM.yyyy-HH:mm:ss
+$BackupStartDate = Get-Date #-format dd.MM.yyyy-HH:mm:ss
 
 ### FUNCTIONS
 
@@ -192,7 +192,7 @@ Function Make-Backup {
 
         $colItems = ($Files | Measure-Object -property length -sum) 
         $Items = 0
-        Write-au2matorLog -Type Info -Text "DEBUG"
+        #Write-au2matorLog -Type Info -Text "DEBUG"
         #Copy-Item -LiteralPath $Backup -Destination $BackupDir -Force -ErrorAction SilentlyContinue | Where-Object { $_.FullName -notmatch $exclude }
         $SumMB += $colItems.Sum.ToString()
         $SumItems += $colItems.Count
@@ -268,7 +268,7 @@ Write-au2matorLog -Type Info -Text "Start the Script"
 $Count = (Get-ChildItem $Destination | where { $_.Attributes -eq "Directory" }).count
 Write-au2matorLog -Type Info -Text "Check if there are more than $Versions Directories in the BackupDir"
 
-if ($count -gt $Versions) {
+if ($count -gt $Versions) { 
     Write-au2matorLog -Type Info -Text "Found $count Backups"
     Remove-BackupDir
 }
@@ -290,8 +290,8 @@ if ($CheckDir -eq $False) {
 else {
     Make-Backup
 
-    $Enddate = Get-Date #-format dd.MM.yyyy-HH:mm:ss
-    $span = $EndDate - $StartDate
+    $BackupEnddate = Get-Date #-format dd.MM.yyyy-HH:mm:ss
+    $span = $BackupEnddate - $BackupStartDate
     $Duration = $("Backup duration " + $span.Hours.ToString() + " hours " + $span.Minutes.ToString() + " minutes " + $span.Seconds.ToString() + " seconds")
 
     Write-au2matorLog -Type Info -Text "$Duration"
@@ -299,6 +299,7 @@ else {
     Write-au2matorLog -Type Info -Text "----------------------" 
 
     if ($Zip) {
+        $ZipStartDate = Get-Date
         Write-au2matorLog -Type Info -Text "Compress the Backup Destination"
         if ($Use7ZIP) {
             Write-au2matorLog -Type Info -Text "Use 7-Zip"
@@ -344,7 +345,12 @@ else {
         Get-ChildItem -Path $BackupDir -Recurse -Force | Remove-Item -Confirm:$False -Recurse
         Get-Item -Path $BackupDir | Remove-Item -Confirm:$False -Recurse
     }
-    Write-au2matorLog -Type Info -Text "$Duration"
+    $ZipEnddate = Get-Date #-format dd.MM.yyyy-HH:mm:ss
+    $span = $ZipEndDate - $ZipStartDate
+    $Duration = $("Zip duration " + $span.Hours.ToString() + " hours " + $span.Minutes.ToString() + " minutes " + $span.Seconds.ToString() + " seconds")
+
+    $span = $ZipEndDate - $BackupStartDate
+    $Duration = $("Total duration " + $span.Hours.ToString() + " hours " + $span.Minutes.ToString() + " minutes " + $span.Seconds.ToString() + " seconds")
 
 }
 
