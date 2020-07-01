@@ -205,7 +205,7 @@ Function Make-Backup {
     # Log any errors from above from building the list of files to backup.
     [System.Management.Automation.ErrorRecord]$errItem = $null
     foreach ($errItem in $errItems) {
-        Write-au2matorLog -Type ERROR -Text ("Skipping `"" + $errItem.TargetObject + "`" Error: " + $errItem.CategoryInfo)
+        Write-au2matorLog -Type ERROR -Text "Skipping '$($errItem.TargetObject)' - Error: $($errItem.CategoryInfo)"
     }
     Remove-Variable errItem
     Remove-Variable errItems
@@ -223,11 +223,11 @@ Function Make-Backup {
                 # Use New-Item to create the destination directory if it doesn't yet exist. Then copy the file.
                 New-Item -Path (Split-Path -Path $($BackupDir + $restpath) -Parent) -ItemType "directory" -Force -ErrorAction SilentlyContinue | Out-Null
                 Copy-Item -LiteralPath $file.fullname -Destination $($BackupDir + $restpath) -Force -ErrorAction SilentlyContinue | Out-Null
-                Write-au2matorLog -Type Info -Text $("'" + $File.FullName + "' was copied")
+                Write-au2matorLog -Type Info -Text "'$($File.FullName)' copied to $BackupDir"
             }
             catch {
                 $ErrorCount++
-                Write-au2matorLog -Type Error -Text $("'" + $File.FullName + "' returned an error and was not copied")
+                Write-au2matorLog -Type Error -Text "'$($File.FullName)' returned an error and was not copied"
             }
             $Items += (Get-item -LiteralPath $file.fullname).Length
             $status = "Copy file {0} of {1} and copied {3} MB of {4} MB: {2}" -f $count, $SumItems, $file.Name, ("{0:N2}" -f ($Items / 1MB)).ToString(), ("{0:N2}" -f ($SumMB / 1MB)).ToString()
