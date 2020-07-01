@@ -94,7 +94,7 @@ if ($UseStaging -and $Zip) {
 $Items = 0
 $Count = 0
 $ErrorCount = 0
-$BackupStartDate = Get-Date #-format dd.MM.yyyy-HH:mm:ss
+$BackupStartDate = Get-Date
 
 ### FUNCTIONS
 
@@ -290,11 +290,11 @@ if ($CheckDir -eq $False) {
 else {
     Make-Backup
 
-    $BackupEnddate = Get-Date #-format dd.MM.yyyy-HH:mm:ss
-    $span = $BackupEnddate - $BackupStartDate
-    $Duration = $("Backup duration " + $span.Hours.ToString() + " hours " + $span.Minutes.ToString() + " minutes " + $span.Seconds.ToString() + " seconds")
+    $CopyEndDate = Get-Date
+    $span = $CopyEnddate - $BackupStartDate
+    $CopyDuration = "Copy duration $($span.Hours) hours $($span.Minutes) minutes $($span.Seconds) seconds"
 
-    Write-au2matorLog -Type Info -Text "$Duration"
+    Write-au2matorLog -Type Info -Text "$CopyDuration"
     Write-au2matorLog -Type Info -Text "----------------------"
     Write-au2matorLog -Type Info -Text "----------------------" 
 
@@ -335,6 +335,12 @@ else {
             Move-Item -Path "$BackupDir\$ZipFileName" -Destination $Destination
         }
 
+        $ZipEnddate = Get-Date
+        $span = $ZipEndDate - $ZipStartDate
+        $ZipDuration = "Zip duration $($span.Hours) hours $($span.Minutes) minutes $($span.Seconds) seconds"
+        Write-au2matorLog -Type Info -Text "$ZipDuration"
+
+
         # Clean-up Staging
         if ($ClearStaging) {
             Write-au2matorLog -Type Info -Text "Clear Staging"
@@ -345,12 +351,10 @@ else {
         Get-ChildItem -Path $BackupDir -Recurse -Force | Remove-Item -Confirm:$False -Recurse
         Get-Item -Path $BackupDir | Remove-Item -Confirm:$False -Recurse
     }
-    $ZipEnddate = Get-Date #-format dd.MM.yyyy-HH:mm:ss
-    $span = $ZipEndDate - $ZipStartDate
-    $Duration = $("Zip duration " + $span.Hours.ToString() + " hours " + $span.Minutes.ToString() + " minutes " + $span.Seconds.ToString() + " seconds")
 
     $span = $ZipEndDate - $BackupStartDate
-    $Duration = $("Total duration " + $span.Hours.ToString() + " hours " + $span.Minutes.ToString() + " minutes " + $span.Seconds.ToString() + " seconds")
+    $TotalDuration = "Total duration $($span.Hours) hours $($span.Minutes) minutes $($span.Seconds) seconds"
+    Write-au2matorLog -Type Info -Text "$TotalDuration"
 
 }
 
