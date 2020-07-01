@@ -274,22 +274,21 @@ $Count = (Get-ChildItem $Destination | where { $_.Attributes -eq "Directory" }).
 Write-au2matorLog -Type Info -Text "Check if there are more than $Versions Directories in the BackupDir"
 
 if ($count -gt $Versions) { 
-    Write-au2matorLog -Type Info -Text "Found $count Backups"
+    Write-au2matorLog -Type Info -Text "Found $count Directory Backups"
     Remove-BackupDir
 }
 
 
-$CountZip = (Get-ChildItem $Destination | where { $_.Attributes -eq "Archive" -and $_.Extension -eq ".zip" }).count
-Write-au2matorLog -Type Info -Text "Check if there are more than $Versions Zip in the BackupDir"
-
-if ($CountZip -gt $Versions) {
-    Remove-Zip 
+if ($Zip) {
+    $CountZip = (Get-ChildItem $Destination | where { $_.Attributes -eq "Archive" -and $_.Extension -eq ".zip" }).count
+    Write-au2matorLog -Type Info -Text "Check if there are more than $Versions Zip in the BackupDir"
+    if ($CountZip -gt $Versions) {
+        Write-au2matorLog -Type Info -Text "Found $CountZip Zip backups"
+        Remove-Zip 
+    }
 }
 
-# Check if all Dir are existing and do the Backup
-$CheckDir = Check-Dir
-
-if ($CheckDir -eq $False) {
+if (Check-Dir) {
     Write-au2matorLog -Type Error -Text "One of the Directories are not available, Script has stopped"
 } else {
     Make-Backup
