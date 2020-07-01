@@ -50,7 +50,7 @@ Param(
     [bool]$Zip = $True, # Zip the backup. 
     [bool]$Use7ZIP = $False, # Make sure 7-Zip is installed. (https://7-zip.org)
     [string]$7zPath = "$env:ProgramFiles\7-Zip\7z.exe",
-    [string]$Versions = "15", # Number of backups you want to keep. 
+    [string]$Versions = "2", # Number of backups you want to keep. 
 
     # Staging -- Only used if Zip = $True.
     [bool]$UseStaging = $True, # If $False: $Destination will be used for Staging.
@@ -344,7 +344,8 @@ else {
     Write-au2matorLog -Type Info -Text "$Duration"
 
 }
-Write-au2matorLog -Type Info -Text "Finished"
-Write-Host "Press any key to close ..."
 
-$x = $host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+Write-au2matorLog -Type Info -Text "Finished"
+
+#Write-Host "Press any key to close ..."
+#$x = $host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
