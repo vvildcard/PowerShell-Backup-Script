@@ -134,36 +134,41 @@ function Write-au2matorLog {
 
 # Create the BackupDir
 Function New-BackupDir {
-    Write-au2matorLog -Type Info -Text "Create new directory: $BackupDir"
-    New-Item -Path $BackupDir -ItemType Directory -ErrorAction SilentlyContinue | Out-Null
+    if (Test-Path $BackupDir) {
+        Write-au2matorLog -Type DEBUG -Text "Backup/Staging directory already exists: $BackupDir"
+    } else {
+        New-Item -Path $BackupDir -ItemType Directory -ErrorAction SilentlyContinue | Out-Null
+        Write-au2matorLog -Type INFO -Text "Created backup/staging directory: $BackupDir"
+    }
 }
 
 # Delete the BackupDir
 Function Remove-BackupDir {
-    Write-au2matorLog -Type Info -Text "Remove directory: $Folder"
-    $Folder = Get-ChildItem $Destination | where { $_.Attributes -eq "Directory" } | Sort-Object -Property CreationTime -Descending:$False | Select-Object -First 1
-    $Folder.FullName | Remove-Item -Recurse -Force 
+    $RemoveFolder = Get-ChildItem $Destination | where { $_.Attributes -eq "Directory" } | Sort-Object -Property CreationTime -Descending:$False | Select-Object -First 1
+    $RemoveFolder.FullName | Remove-Item -Recurse -Force 
+    Write-au2matorLog -Type Info -Text "Deleted oldest directory backup: $RemoveFolder"
 }
 
 
 # Delete Zip
 Function Remove-Zip {
-    Write-au2matorLog -Type Info -Text "Remove zip: $RemoveZip"
     $RemoveZip = Get-ChildItem $Destination | where { $_.Attributes -eq "Archive" -and $_.Extension -eq ".zip" } | Sort-Object -Property CreationTime -Descending:$False | Select-Object -First 1
     $RemoveZip.FullName | Remove-Item -Recurse -Force 
+    Write-au2matorLog -Type Info -Text "Deleted oldest zip backup: $RemoveZip"
 }
 
 # Check if BackupDirs and Destination is available
 function Check-Dir {
     Write-au2matorLog -Type Info -Text "Check if BackupDir and Destination exists"
     if (!(Test-Path $BackupDirs)) {
-        return $False
         Write-au2matorLog -Type Error -Text "$BackupDirs does not exist"
+        return $False
     }
     if (!(Test-Path $Destination)) {
-        return $False
         Write-au2matorLog -Type Error -Text "$Destination does not exist"
+        return $False
     }
+    return $True
 }
 
 # Save all the Files
@@ -223,7 +228,7 @@ Function Make-Backup {
                 # Use New-Item to create the destination directory if it doesn't yet exist. Then copy the file.
                 New-Item -Path (Split-Path -Path $($BackupDir + $restpath) -Parent) -ItemType "directory" -Force -ErrorAction SilentlyContinue | Out-Null
                 Copy-Item -LiteralPath $file.fullname -Destination $($BackupDir + $restpath) -Force -ErrorAction SilentlyContinue | Out-Null
-                Write-au2matorLog -Type Info -Text "'$($File.FullName)' copied to $BackupDir"
+                Write-au2matorLog -Type Info -Text "'$($File.FullName)' copied to '$BackupDir'"
             }
             catch {
                 $ErrorCount++
@@ -286,8 +291,7 @@ $CheckDir = Check-Dir
 
 if ($CheckDir -eq $False) {
     Write-au2matorLog -Type Error -Text "One of the Directories are not available, Script has stopped"
-}
-else {
+} else {
     Make-Backup
 
     $CopyEndDate = Get-Date
@@ -329,7 +333,7 @@ else {
             #Write-au2matorLog -Type Info -Text "ZipFileName = $($ZipFileName)"
             #Write-au2matorLog -Type Info -Text "Destination = $($Destination)"
 
-            Start-sleep -Milliseconds 1000 # Sleep for a second to let things settle. 
+            Start-sleep -Milliseconds 2000 # Sleep for a second to let things settle. 
 
             Compress-Archive -Path "$BackupDir\*" -DestinationPath "$BackupDir\$ZipFileName"  -CompressionLevel Optimal -Force
             Move-Item -Path "$BackupDir\$ZipFileName" -Destination $Destination
