@@ -167,9 +167,12 @@ function Check-Dir {
     if (!(Test-Path $Destination)) {
         Write-au2matorLog -Type Error -Text "$Destination does not exist"
         return $False
-    }
+    } 
+    #Write-au2matorLog -Type INFO -Text "Backup Dirs: $($BackupDirs)"
+    #Write-au2matorLog -Type INFO -Text "Destination: $($Destination)"
     return $True
 }
+
 
 # Save all the Files
 Function Make-Backup {
@@ -189,18 +192,20 @@ Function Make-Backup {
         # Use -LiteralPath option to work around known issue with PowerShell FileSystemProvider wildcards.
         # See: https://github.com/PowerShell/PowerShell/issues/6733
 
-        $Files = Get-ChildItem -LiteralPath $Backup -recurse -Attributes D+!ReparsePoint, D+H+!ReparsePoint -ErrorVariable +errItems -ErrorAction SilentlyContinue | 
-        ForEach-Object -Process { Add-Member -InputObject $_ -NotePropertyName "ParentFullName" -NotePropertyValue ($_.FullName.Substring(0, $_.FullName.LastIndexOf("\" + $_.Name))) -PassThru -ErrorAction SilentlyContinue } |
-        Where-Object { $_.FullName -notmatch $exclude -and $_.ParentFullName -notmatch $exclude } |
-        Get-ChildItem -Attributes !D -ErrorVariable +errItems -ErrorAction SilentlyContinue | Where-Object { $_.DirectoryName -notmatch $exclude }
-        $BackupDirFiles.Add($Backup, $Files)
-
-        $colItems = ($Files | Measure-Object -property length -sum) 
-        $Items = 0
-        #Write-au2matorLog -Type Info -Text "DEBUG"
-        #Copy-Item -LiteralPath $Backup -Destination $BackupDir -Force -ErrorAction SilentlyContinue | Where-Object { $_.FullName -notmatch $exclude }
-        $SumMB += $colItems.Sum.ToString()
-        $SumItems += $colItems.Count
+        if ($Backup) {
+            $Files = Get-ChildItem -LiteralPath $Backup -recurse -Attributes D+!ReparsePoint, D+H+!ReparsePoint -ErrorVariable +errItems -ErrorAction SilentlyContinue | 
+            ForEach-Object -Process { Add-Member -InputObject $_ -NotePropertyName "ParentFullName" -NotePropertyValue ($_.FullName.Substring(0, $_.FullName.LastIndexOf("\" + $_.Name))) -PassThru -ErrorAction SilentlyContinue } |
+            Where-Object { $_.FullName -notmatch $exclude -and $_.ParentFullName -notmatch $exclude } |
+            Get-ChildItem -Attributes !D -ErrorVariable +errItems -ErrorAction SilentlyContinue | Where-Object { $_.DirectoryName -notmatch $exclude }
+            $BackupDirFiles.Add($Backup, $Files)
+            
+            $colItems = ($Files | Measure-Object -property length -sum) 
+            $Items = 0
+            #Write-au2matorLog -Type Info -Text "DEBUG"
+            #Copy-Item -LiteralPath $Backup -Destination $BackupDir -Force -ErrorAction SilentlyContinue | Where-Object { $_.FullName -notmatch $exclude }
+            $SumMB += $colItems.Sum.ToString()
+            $SumItems += $colItems.Count
+        }
     }
 
     # Calculate total size of the backup. 
@@ -269,7 +274,7 @@ New-BackupDir
 Write-au2matorLog -Type Info -Text "----------------------"
 Write-au2matorLog -Type Info -Text "Start the Script"
 
-# Check if BackupDir needs to be cleaned and create BackupDir
+# Check if BackupDir needs to be cleaned
 $Count = (Get-ChildItem $Destination | where { $_.Attributes -eq "Directory" }).count
 Write-au2matorLog -Type Info -Text "Check if there are more than $Versions Directories in the BackupDir"
 
@@ -279,6 +284,7 @@ if ($count -gt $Versions) {
 }
 
 
+# Count the previous zip backups and remove the oldest (if needed)
 if ($Zip) {
     $CountZip = (Get-ChildItem $Destination | where { $_.Attributes -eq "Archive" -and $_.Extension -eq ".zip" }).count
     Write-au2matorLog -Type Info -Text "Check if there are more than $Versions Zip in the BackupDir"
@@ -288,7 +294,9 @@ if ($Zip) {
     }
 }
 
-if (Check-Dir) {
+# Start the Backup
+$CheckDir = Check-Dir
+if (-not $CheckDir) {
     Write-au2matorLog -Type Error -Text "One of the Directories are not available, Script has stopped"
 } else {
     Make-Backup
