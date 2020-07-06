@@ -210,11 +210,12 @@ Function Make-Backup {
             
             $colItems = ($Files | Measure-Object -property length -sum) 
 			#write-host "colItems: $colItems"
-            $Items = 0
             #Write-au2matorLog -Type DEBUG -Text "DEBUG"
             #Copy-Item -LiteralPath $Backup -Destination $BackupDir -Force -ErrorAction SilentlyContinue | Where-Object { $_.FullName -notmatch $exclude }
-            $SumMB += $colItems.Sum.ToString() -ErrorAction SilentlyContinue
-            $SumItems += $colItems.Count
+            if ($colItems) {
+				$SumMB += $colItems.Sum.ToString()
+				$SumItems += $colItems.Count
+			}
         }
     }
 
