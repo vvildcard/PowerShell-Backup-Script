@@ -1,33 +1,25 @@
 # Name: BackupScript.ps1
     Version: 2.0
-    Forked: 2020-07-01
-    Forked by: [Ryan Dasso](https://github.com/vvildcard)
-    Forked from: v1.5
     LastModified: 2020-07-02
-    Creator: [Michael Seidl](https://github.com/Seidlm) aka [Techguy](http://www.techguy.at/)
 
-# Description: 
-Copies one or more BackupDirs to the Destination.
+# Description
+    Copies one or more BackupDirs to the Destination.
 
 # Features
-Zipped or unzipped backups. 
+    Zipped or unzipped backups. 
+    Optional staging folder for zipping reduces network bandwidth (only copies the final zip to the Destination)
+    A Progress Bar shows the status of copied MB to the total MB.
+    Email reports. 
+    Removes oldest backups (see Versions parameter). 
 
-Optional staging folder for zipping reduces network bandwidth (only copies the final zip to the Destination)
-
-A Progress Bar shows the status of copied MB to the total MB.
-
-Email reports. 
-
-Removes oldest backups (see Versions parameter). 
-
-# Usage:
+# Usage
     BackupScript.ps1 -BackupDirs "C:\path\to\backup", "C:\another\path\" -Destination "C:\path\to\put\the\backup"
 
-## Required Parameters: 
+## Required Parameters
     BackupDirs (Default: none)
     Destination (Default: none)
 
-## Optional Parameters: 
+## Optional Parameters
     ExcludeDirs (Default: "$env:SystemDrive\Users\.*\AppData\Local", "$env:SystemDrive\Users\.*\AppData\LocalLow")
     TempDir (Default: "$env:TEMP\BackupScript")
     LogPath (Default: "$TempDir\Logging")
@@ -58,4 +50,8 @@ Removes oldest backups (see Versions parameter).
     See original: https://github.com/Seidlm/PowerShell-Backup-Script
 
 # Other
-PowerShell Self Service Web Portal at www.au2mator.com/PowerShell
+    Forked: 2020-07-01
+    Forked by: [Ryan Dasso](https://github.com/vvildcard)
+    Forked from: v1.5
+    Creator: [Michael Seidl](https://github.com/Seidlm) aka [Techguy](http://www.techguy.at/)
+    PowerShell Self Service Web Portal at www.au2mator.com/PowerShell
