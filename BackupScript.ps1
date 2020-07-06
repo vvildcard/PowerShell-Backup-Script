@@ -213,7 +213,7 @@ Function Make-Backup {
             $Items = 0
             #Write-au2matorLog -Type DEBUG -Text "DEBUG"
             #Copy-Item -LiteralPath $Backup -Destination $BackupDir -Force -ErrorAction SilentlyContinue | Where-Object { $_.FullName -notmatch $exclude }
-            $SumMB += $colItems.Sum.ToString()
+            $SumMB += $colItems.Sum.ToString() -ErrorAction SilentlyContinue
             $SumItems += $colItems.Count
         }
     }
