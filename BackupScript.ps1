@@ -186,7 +186,7 @@ Function Make-Backup {
     $SumItems = 0
     $SumCount = 0
     $colItems = 0
-    Write-au2matorLog -Type INFO -Text "Counting all files and calculating size"
+    Write-au2matorLog -Type DEBUG -Text "Counting all files and calculating size"
 
     # Count the number of files to backup. 
     foreach ($Backup in $BackupDirs) {
@@ -220,8 +220,8 @@ Function Make-Backup {
     }
 
     # Calculate total size of the backup. 
-    $TotalMB = "{0:N2}" -f ($SumMB / 1MB) + " MB of Files"
-    Write-au2matorLog -Type INFO -Text "There are $SumItems Files with $TotalMB to copy"
+    $TotalMB = "{0:N2}" -f ($SumMB / 1MB) + " MB"
+    Write-au2matorLog -Type INFO -Text "There are $SumItems files ($TotalMB) to copy"
 
     # Log any errors from above from building the list of files to backup.
     [System.Management.Automation.ErrorRecord]$errItem = $null
@@ -259,9 +259,9 @@ Function Make-Backup {
         }
     }
     $SumCount += $Count
-    $SumTotalMB = "{0:N2}" -f ($Items / 1MB) + " MB of Files"
-    Write-au2matorLog -Type INFO -Text "----------------------"
-    Write-au2matorLog -Type INFO -Text "Copied $SumCount files with $SumTotalMB"
+    $SumTotalMB = "{0:N2}" -f ($Items / 1MB) + " MB"
+    Write-au2matorLog -Type DEBUG -Text "----------------------"
+    Write-au2matorLog -Type DEBUG -Text "Copied $SumCount files. Size of $SumTotalMB"
     if ($ErrorCount) {
 		Write-au2matorLog -Type WARNING -Text "$ErrorCount files could not be copied"
 	}
@@ -316,9 +316,7 @@ if (-not $CheckDir) {
 
     $CopyEndDate = Get-Date
     $span = $CopyEnddate - $BackupStartDate
-    $CopyDuration = "Copy duration $($span.Hours) hours $($span.Minutes) minutes $($span.Seconds) seconds"
-
-    Write-au2matorLog -Type INFO -Text "$CopyDuration"
+    Write-au2matorLog -Type INFO -Text "Copy duration $($span.Hours) hours $($span.Minutes) minutes $($span.Seconds) seconds"
     Write-au2matorLog -Type INFO -Text "----------------------"
 
     if ($Zip) {
@@ -332,32 +330,35 @@ if (-not $CheckDir) {
                 #sz a -t7z "$directory\$zipfile" "$directory\$name"    
             } else {
                 Write-au2matorLog -Type DEBUG -Text "Looking for 7-Zip here: $($7zPath)" 
-                Write-au2matorLog -Type ERROR -Text "7-Zip not found. Aborting!" 
+                Write-au2matorLog -Type ERROR -Text "7-Zip not found: Reverting to Powershell compression" 
+				$Use7ZIP = $FALSE
             }
-
-            if ($UseStaging) { # Zip to the staging directory, then move to the destination.
+            if ($Use7ZIP -and $UseStaging) { # Zip to the staging directory, then move to the destination.
                 # Usage: sz a -t7z <archive.zip> <source1> <source2> <sourceX>
                 sz a -t7z "$BackupDir\$ZipFileName" $BackupDir
-                Write-au2matorLog -Type INFO -Text "Moving Zip to Destination"
+                Write-au2matorLog -Type INFO -Text "Moving Zip to $Destination"
                 Move-Item -Path "$BackupDir\$ZipFileName" -Destination $Destination
 
             } else { # Zip straight to the BackupDir. 
                 sz a -t7z "$BackupDir\$ZipFileName" $BackupDir
             }
             
-        } else {  # Use powershell-native compression
-            Write-au2matorLog -Type DEBUG -Text "Using Powershell Compress-Archive"
-            #Write-au2matorLog -Type DEBUG -Text "BackupDir = $($BackupDir)"
-            #Write-au2matorLog -Type DEBUG -Text "StagingDir = $($StagingDir)"
-            #Write-au2matorLog -Type DEBUG -Text "ZipFileName = $($ZipFileName)"
-            #Write-au2matorLog -Type DEBUG -Text "Destination = $($Destination)"
+        }
+		if (-not $Use7ZIP) {  # Use powershell-native compression
+			Write-au2matorLog -Type DEBUG -Text "Using Powershell Compress-Archive"
+			#Write-au2matorLog -Type DEBUG -Text "BackupDir = $($BackupDir)"
+			#Write-au2matorLog -Type DEBUG -Text "StagingDir = $($StagingDir)"
+			#Write-au2matorLog -Type DEBUG -Text "ZipFileName = $($ZipFileName)"
+			#Write-au2matorLog -Type DEBUG -Text "Destination = $($Destination)"
 
 			$SleepTime = 2 # Seconds
-            Start-sleep -Seconds ($SleepTime) # Briefly sleep to let things settle. 
+			Write-au2matorLog -Type DEBUG -Text "Pausing for $SleepTime seconds to let things settle"
+			Start-sleep -Seconds ($SleepTime) 
 
-            Compress-Archive -Path "$BackupDir\*" -DestinationPath "$BackupDir\$ZipFileName"  -CompressionLevel Optimal -Force
-            Move-Item -Path "$BackupDir\$ZipFileName" -Destination $Destination
-        }
+			Compress-Archive -Path "$BackupDir\*" -DestinationPath "$BackupDir\$ZipFileName"  -CompressionLevel Optimal -Force
+			Write-au2matorLog -Type INFO -Text "Moving Zip to $Destination"
+			Move-Item -Path "$BackupDir\$ZipFileName" -Destination $Destination
+		}
 
         $ZipEnddate = Get-Date
         $span = $ZipEndDate - $ZipStartDate
