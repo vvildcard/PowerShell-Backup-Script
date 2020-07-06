@@ -1,56 +1,55 @@
 # Name: BackupScript.ps1
-    Creator: Michael Seidl aka Techguy
-    CreationDate: 21.01.2014
-    LastModified: 31.03.2020
-    Version: 1.5
-    Doc: http://www.techguy.at/tag/backupscript/
-    GitHub: https://github.com/Seidlm/PowerShell-Backup-Script
-    PSVersion tested: 3 and 4
-
-
-# PowerShell Self Service Web Portal at www.au2mator.com/PowerShell
-
+    Version: 2.0
+    Forked: 2020-07-01
+    Forked by: [Ryan Dasso](https://github.com/vvildcard)
+    Forked from: v1.5
+    LastModified: 2020-07-02
+    Creator: [Michael Seidl](https://github.com/Seidlm) aka [Techguy](http://www.techguy.at/)
 
 # Description: 
-Copies the Bakupdirs to the Destination
-You can configure more than one Backupdirs, every Dir
-wil be copied to the Destination. A Progress Bar
-is showing the Status of copied MB to the total MB
-Only Change Variables in Variables Section
-Change LoggingLevel to 3 an get more output in Powershell Windows
+Copies one or more BackupDirs to the Destination.
+
+# Features
+A Progress Bar shows the status of copied MB to the total MB.
+Email reports. 
+Zipped or unzipped backups. 
+Removes oldest backups (see Versions parameter)
+
+# Usage:
+    BackupScript.ps1 -BackupDirs "C:\path\to\backup", "C:\another\path\" -Destination "C:\path\to\put\the\backup"
+## Required Parameters: 
+    **BackupDirs** (Default: none)
+    **Destination** (Default: none)
+## Optional Parameters: 
+    **ExcludeDirs** (Default: "$env:SystemDrive\Users\.*\AppData\Local", "$env:SystemDrive\Users\.*\AppData\LocalLow")
+    **TempDir** (Default: "$env:TEMP\BackupScript")
+    **LogPath** (Default: "$TempDir\Logging")
+    **LogFileName** (Default: "Log")
+    **LoggingLevel** (Default: "3")
+    **Zip** (Default: $True)
+    **Use7ZIP** (Default: $False
+    **7zPath** (Default: "$env:ProgramFiles\7-Zip\7z.exe")
+    **Versions** (Default: "2") *Bug*: It will actually keep X+1 backups
+    **UseStaging** (Default: $True)
+    **StagingDir** (Default: "$TempDir\Staging")
+    **ClearStaging** (Default: $True)
+    **SendEmail** (Default: $False)
+    **EmailTo** (Default: "test@domain.com")
+    **EmailFrom** (Default: "from@domain.com")
+    **EmailSMTP** (Default; "smtp.domain.com")
+
+# Version 2.0 (2020.07.02)
+    NEW: All configurable variables are parameters. 
+    FIX: Removed all author/computer-specific paths and messages. 
+    FIX: Typos
+    FIX: Correctly handles multiple backups made on the same day (no more randomness)
+    DIF: Reworked many things for clarity or to be more "PowerShell-like"
+    DIF: Combined 'staging' and non-staging. "Non-staging" is just staging in 
+            the Destination. 
+    DIF: Added/reworked comments and log output for clarity/consistency. 
  
-# Version 1.5 (31.03.2020)
-    FIX: Github: Symbolic Links are now supported
-    FIX: Github: Sibling Folders
-    FIX: Github: Backup Duration
-    NEW: Rewrite Loggign Function
-    DIF: Some Code write ups
-# Version 1.4
-    NEW: 7ZIP Support
-    FIX: Ordering at old Backup deletion
-    FIX: Exclude Dir is now working
-    NEW: Staging folder for ZIP
-# Version 1.3
-    NEW: Send Mail Function
-    NEW: Backup Destination will be zipped
-    NEW: Exclude Dir
-    FIX: Logging Level
-    FIX: Delete old Folder by CreationTime
+# Version 1.x
+    See original: https://github.com/Seidlm/PowerShell-Backup-Script
 
-# Version 1.2
-    FIX: Delete last Backup dirs, changed to support older PS Version
-    FIX: Fixed the Count in the Statusbar
-    FIX: Fixed Location Count in Statusbar
-
-# Version 1.1 
-    CHANGE: Enhanced the Logging to a Textfile and write output, copy Log file to Backupdir
-    FIX: Renamed some Variables an have done some cosmetic changes
-    CHANGE: Define the Log Name in Variables
-
-# Version 1.0 - RTM
-
-# Notes
-    www.techguy.at
-    www.facebook.com/TechguyAT
-    www.twitter.com/TechguyAT
-    michael@techguy.at
+# Other
+PowerShell Self Service Web Portal at www.au2mator.com/PowerShell
