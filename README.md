@@ -1,6 +1,6 @@
 # Name: BackupScript.ps1
     Version: 2.0
-    LastModified: 2020-07-02
+    LastModified: 2020-07-06
 
 # Description
     Copies one or more BackupDirs to the Destination.
@@ -24,7 +24,7 @@
     TempDir (Default: "$env:TEMP\BackupScript")
     LogPath (Default: "$TempDir\Logging")
     LogFileName (Default: "Log")
-    LoggingLevel (Default: "3")
+    LoggingLevel (Default: 2)
     Zip (Default: $True)
     Use7ZIP (Default: $False
     7zPath (Default: "$env:ProgramFiles\7-Zip\7z.exe")
@@ -36,6 +36,11 @@
     EmailTo (Default: "test@domain.com")
     EmailFrom (Default: "from@domain.com")
     EmailSMTP (Default; "smtp.domain.com")
+
+# Version 2.1 (2020-07-06)
+	FIX: ERROR, WARNING and INFO log levels work for console output (the log is always DEBUG level)
+	DIF: Adjusted some logging output levels. 
+	DIF: Set LogLevel default to 2 (INFO). 
 
 # Version 2.0 (2020.07.02)
     NEW: All configurable variables are parameters. 
