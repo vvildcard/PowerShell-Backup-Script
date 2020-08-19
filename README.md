@@ -1,6 +1,6 @@
 # Name: BackupScript.ps1
-    Version: 2.0
-    LastModified: 2020-07-06
+    Version: 2.2
+    LastModified: 2020-08-19
 
 # Description
     Copies one or more BackupDirs to the Destination.
@@ -36,6 +36,9 @@
     EmailTo (Default: "test@domain.com")
     EmailFrom (Default: "from@domain.com")
     EmailSMTP (Default; "smtp.domain.com")
+	
+# Version 2.2 (2020-07-06)
+	FIX: Declared $Log variable for the email attachment
 
 # Version 2.1 (2020-07-06)
 	FIX: ERROR, WARNING and INFO log levels work for console output (the log is always DEBUG level)
