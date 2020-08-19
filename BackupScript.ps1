@@ -78,11 +78,6 @@ $ExcludeString = $ExcludeString.Substring(0, $ExcludeString.Length - 1)
 
 # Set the staging directory and name the backup file or folder. 
 $BackupName = "Backup-$(Get-Date -format yyyy-MM-dd-hhmmss)"
-if ($Use7ZIP) {
-    $ZipFileName = "$($BackupName).7z"
-} else {
-    $ZipFileName = "$($BackupName).zip"
-}
 if ($UseStaging -and $Zip) {
     $BackupDir = "$StagingDir"
 } else {
@@ -338,6 +333,11 @@ if (-not $CheckDir) {
                 Write-au2matorLog -Type ERROR -Text "7-Zip not found: Reverting to Powershell compression" 
 				$Use7zip = $FALSE
             }
+			if ($Use7ZIP) {
+				$ZipFileName = "$($BackupName).7z"
+			} else {
+				$ZipFileName = "$($BackupName).zip"
+			}
             if ($Use7zip -and $UseStaging) { # Zip to the staging directory, then move to the destination.
                 # Usage: sz a -mx=$7zCompression -t7z <archive.zip> <source1> <source2> <sourceX>
                 sz a -mx=$7zCompression -t7z "$BackupDir\$ZipFileName" "$BackupDir\*"
