@@ -45,6 +45,7 @@ Param(
     [bool]$Use7zip = $False, # Make sure 7-Zip is installed. (https://7-zip.org)
     [string]$7zPath = "$env:ProgramFiles\7-Zip\7z.exe",
     [string]$Versions = "2", # Number of backups you want to keep. 
+    [string]$7zCompression = "9", # 7-Zip compression level: 0 for archival, 9 for Ultra
 
     # Staging -- Only used if Zip = $True.
     [bool]$UseStaging = $True, # If $False: $Destination will be used for Staging.
@@ -331,20 +332,20 @@ if (-not $CheckDir) {
             if (test-path $7zPath) { 
                 Write-au2matorLog -Type DEBUG -Text "7-Zip found: $($7zPath)!" 
                 set-alias sz "$7zPath"
-                #sz a -t7z "$directory\$zipfile" "$directory\$name"    
+                #sz a -mx=$7zCompression -t7z "$directory\$zipfile" "$directory\$name"    
             } else {
                 Write-au2matorLog -Type DEBUG -Text "Looking for 7-Zip here: $($7zPath)" 
                 Write-au2matorLog -Type ERROR -Text "7-Zip not found: Reverting to Powershell compression" 
 				$Use7zip = $FALSE
             }
             if ($Use7zip -and $UseStaging) { # Zip to the staging directory, then move to the destination.
-                # Usage: sz a -t7z <archive.zip> <source1> <source2> <sourceX>
-                sz a -t7z "$BackupDir\$ZipFileName" "$BackupDir\*"
+                # Usage: sz a -mx=$7zCompression -t7z <archive.zip> <source1> <source2> <sourceX>
+                sz a -mx=$7zCompression -t7z "$BackupDir\$ZipFileName" "$BackupDir\*"
                 Write-au2matorLog -Type INFO -Text "Moving Zip to $Destination"
                 Move-Item -Path "$BackupDir\$ZipFileName" -Destination $Destination
 
             } else { # Zip straight to the BackupDir. 
-                sz a -t7z "$BackupDir\$ZipFileName" "$BackupDir\*"
+                sz a -mx=$7zCompression -t7z "$BackupDir\$ZipFileName" "$BackupDir\*"
             }
             
         }

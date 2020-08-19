@@ -26,8 +26,9 @@
     LogFileName (Default: "Log")
     LoggingLevel (Default: 2)
     Zip (Default: $True)
-    Use7ZIP (Default: $False
+    Use7ZIP (Default: $False)
     7zPath (Default: "$env:ProgramFiles\7-Zip\7z.exe")
+	$7zCompression (Default: 9, Ultra)
     Versions (Default: "2") *Bug*: It will actually keep X+1 backups
     UseStaging (Default: $True)
     StagingDir (Default: "$TempDir\Staging")
@@ -41,6 +42,7 @@
 	FIX: Declared $Log variable for the email attachment
 	FIX: Don't include parent folder in the archive when using 7-Zip
 	CHANGE: Uze .7z extension when using 7-Zip
+	NEW: 7-Zip compression level
 
 # Version 2.1 (2020-07-06)
 	FIX: ERROR, WARNING and INFO log levels work for console output (the log is always DEBUG level)
