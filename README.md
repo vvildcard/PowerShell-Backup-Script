@@ -1,6 +1,6 @@
 # Name: BackupScript.ps1
-    Version: 2.0
-    LastModified: 2020-07-06
+    Version: 2.2
+    LastModified: 2020-08-19
 
 # Description
     Copies one or more BackupDirs to the Destination.
