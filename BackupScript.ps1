@@ -417,7 +417,6 @@ if (-not $CheckDir) {
 						Computer: $env:COMPUTERNAME`n
 						Source(s): $BackupDirs`n
 						Backup Location: $Destination`n
-						Backup Location: $Destination`n
 						Archive Password: $Password`n
 						$ZipRemovalInfo`n
 						$FolderRemovalInfo"
