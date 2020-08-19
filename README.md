@@ -1,5 +1,5 @@
 # Name: BackupScript.ps1
-    Version: 2.2
+    Version: 2.3
     LastModified: 2020-08-19
 
 # Description
@@ -37,6 +37,10 @@
     EmailTo (Default: "test@domain.com")
     EmailFrom (Default: "from@domain.com")
     EmailSMTP (Default; "smtp.domain.com")
+	
+# Version 2.3 (2020-08-19)
+	NEW: Implemented 7-Zip encryption option
+	FIX: Small e-mail send improvements
 	
 # Version 2.2 (2020-08-19)
 	FIX: Declared $Log variable for the email attachment

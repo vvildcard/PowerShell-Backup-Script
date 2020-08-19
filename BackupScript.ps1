@@ -1,6 +1,6 @@
 ﻿########################################################
 # Name: BackupScript.ps1                              
-# Version: 2.2
+# Version: 2.3
 # LastModified: 2020-08-19
 # GitHub: https://github.com/vvildcard/PowerShell-Backup-Script
 # 
@@ -41,16 +41,23 @@ Param(
     [string]$LoggingLevel = 2, # LoggingLevel only for Output in Powershell Window, 1=smart, 3=Heavy
 
     # Zip
-    [bool]$Zip = $True, # Zip the backup. 
-    [bool]$Use7zip = $False, # Make sure 7-Zip is installed. (https://7-zip.org)
+    [bool]$Zip = $True, # Zip the backup.
+    [bool]$Use7ZIP = $False, # Make sure 7-Zip is installed. (https://7-zip.org)
     [string]$7zPath = "$env:ProgramFiles\7-Zip\7z.exe",
-    [string]$Versions = "2", # Number of backups you want to keep. 
+    [string]$Versions = "2", # Number of backups you want to keep.
     [string]$7zCompression = "9", # 7-Zip compression level: 0 for archival, 9 for Ultra
 
     # Staging -- Only used if Zip = $True.
     [bool]$UseStaging = $True, # If $False: $Destination will be used for Staging.
-    [string]$StagingDir = "$TempDir\Staging", # Temporary location zipping. 
-    [bool]$ClearStaging = $True, # If $True: Delete StagingDir after backup. 
+    [string]$StagingDir = "$TempDir\Staging", # Temporary location zipping.
+    [bool]$ClearStaging = $True, # If $True: Delete StagingDir after backup.
+	
+	# Encryption -- Only used if Use7Zip = $True, as powershell currently cannot encrypt archives
+	[bool]$UseEncryption = $True, # Encrypt the backup
+	[string]$Password = "Password", # Specify password ' will be ignored if RandomPw=$True
+	[bool]$UseRandomPw = $True, # Specify password or use Random - ignores the previous string
+	[string]$RandomPwLength = "10", # Specify password or use Random - ignores the previous string
+	[string]$RandomPwCharacters = "abcdefghiklmnoprstuvwxyzABCDEFGHKLMNOPRSTUVWXYZ1234567890!%$", # Available characters for the random password generator
 
     # Email
     [bool]$SendEmail = $False, # $True will send report via email (SMTP send)
@@ -313,34 +320,57 @@ if (-not $CheckDir) {
     if ($Zip) {
         $ZipStartDate = Get-Date
         Write-au2matorLog -Type INFO -Text "Compressing the Backup Destination"
-        if ($Use7zip) {
-            Write-au2matorLog -Type DEBUG -Text "Use 7-Zip"
+        if ($Use7Zip) {
+            Write-au2matorLog -Type DEBUG -Text "Using 7-Zip"
+			$ZipFileName = "$($BackupName).7z"
+			Set-Alias sz $7zPath
+			if ($UseEncryption) {
+				Write-au2matorLog -Type INFO -Text "Encrypting Archive"
+					if ($UseRandomPw) {
+						function Get-RandomCharacters($length, $characters) {
+						$random = 1..$length | ForEach-Object { Get-Random -Maximum $characters.length }
+						$private:ofs=""
+						return [String]$characters[$random]
+						}
+						function Scramble-String([string]$inputString){
+						$characterArray = $inputString.ToCharArray()
+						$scrambledStringArray = $characterArray | Get-Random -Count $characterArray.Length
+						$outputString = -join $scrambledStringArray
+						return $outputString
+						}
+						
+						Write-au2matorLog -Type INFO -Text "Generating Random Password"
+						$SemiRandom = Get-RandomCharacters -length $RandomPwLength -characters $RandomPwCharacters
+						$Password = Scramble-String $SemiRandom
+					}
+				$7zipArgs = "a","-mx=$7zCompression","-t7z","-p$Password","-mhe","em=AES256"
+			} else {
+			$7zipArgs = "a","-mx=$7zCompression","-t7z"
+			}
             if (test-path $7zPath) { 
-                Write-au2matorLog -Type DEBUG -Text "7-Zip found: $($7zPath)!" 
-                set-alias sz "$7zPath"
-                #sz a -mx=$7zCompression -t7z "$directory\$zipfile" "$directory\$name"    
+                Write-au2matorLog -Type DEBUG -Text "7-Zip found: $($7zPath)" 
             } else {
                 Write-au2matorLog -Type DEBUG -Text "Looking for 7-Zip here: $($7zPath)" 
                 Write-au2matorLog -Type ERROR -Text "7-Zip not found: Reverting to Powershell compression" 
 				$Use7zip = $FALSE
             }
-			if ($Use7ZIP) {
-				$ZipFileName = "$($BackupName).7z"
+			if ($Use7Zip) {
 			} else {
 				$ZipFileName = "$($BackupName).zip"
 			}
             if ($Use7zip -and $UseStaging) { # Zip to the staging directory, then move to the destination.
-                # Usage: sz a -mx=$7zCompression -t7z <archive.zip> <source1> <source2> <sourceX>
-                sz a -mx=$7zCompression -t7z "$BackupDir\$ZipFileName" "$BackupDir\*"
+				Write-au2matorLog -Type DEBUG -Text "7-Zip Staging command: sz $7zipArgs ""$BackupDir\$ZipFileName"" ""$BackupDir\*"""
+                sz $7zipArgs "$BackupDir\$ZipFileName" "$BackupDir\*"
                 Write-au2matorLog -Type INFO -Text "Moving Zip to $Destination"
                 Move-Item -Path "$BackupDir\$ZipFileName" -Destination $Destination
 
-            } else { # Zip straight to the BackupDir. 
-                sz a -mx=$7zCompression -t7z "$BackupDir\$ZipFileName" "$BackupDir\*"
+            } else { # Zip straight to the BackupDir.
+				Write-au2matorLog -Type DEBUG -Text "7-Zip Staging command: sz $7zipArgs ""$BackupDir\$ZipFileName"" ""$BackupDir\*"""
+                sz $7zipArgs "$BackupDir\$ZipFileName" "$BackupDir\*"
             }
             
         }
-		if (-not $Use7zip) {  # Use powershell-native compression
+		if (-not $Use7Zip) {  # Use powershell-native compression
 			Write-au2matorLog -Type DEBUG -Text "Using Powershell Compress-Archive"
 			#Write-au2matorLog -Type DEBUG -Text "BackupDir = $($BackupDir)"
 			#Write-au2matorLog -Type DEBUG -Text "StagingDir = $($StagingDir)"
@@ -380,8 +410,8 @@ if (-not $CheckDir) {
 }
 
 # Send e-mail with reports as attachments
-if ($SendEmail) {
-	$EmailSubject = "$env:COMPUTERNAME $BackupDirs - Backup on $(get-date -format yyyy.MM.dd) - $ErrorCount errors"
+    if ($SendEmail) {
+        $EmailSubject = "$env:COMPUTERNAME $BackupDirs - Backup on $(get-date -format yyyy.MM.dd) - $ErrorCount errors"
 		if ($UseEncryption) {
 			$EmailBody = "Backup Script $(get-date).`n
 						Computer: $env:COMPUTERNAME`n
@@ -400,12 +430,9 @@ if ($SendEmail) {
 						$FolderRemovalInfo"
 		}
 		$Log=$logPath + "\" + (Get-Date -format yyyyMMdd) + "_" + $LogfileName + ".log"
-		Write-au2matorLog -Type INFO -Text "Sending e-mail to $EmailTo from $EmailFrom (SMTPServer = $EmailSMTP)"
-		Send-MailMessage -To $EmailTo -From $EmailFrom -Subject $EmailSubject -Body $EmailBody -SmtpServer $EmailSMTP -attachment $Log
-		Write-au2matorLog -Type INFO -Text "Send complete"
-}
+        Write-au2matorLog -Type INFO -Text "Sending e-mail to $EmailTo from $EmailFrom (SMTPServer = $EmailSMTP)"
+        Send-MailMessage -To $EmailTo -From $EmailFrom -Subject $EmailSubject -Body $EmailBody -SmtpServer $EmailSMTP -attachment $Log
+        Write-au2matorLog -Type INFO -Text "Send complete"
+    }
 
 Write-au2matorLog -Type WARNING -Text "Backup Finished"
-
-#Write-Host "Press any key to close ..."
-#$x = $host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
