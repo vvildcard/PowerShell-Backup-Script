@@ -1,7 +1,7 @@
 ﻿########################################################
 # Name: BackupScript.ps1                              
-# Version: 2.1
-# LastModified: 2020-07-06
+# Version: 2.2
+# LastModified: 2020-08-19
 # GitHub: https://github.com/vvildcard/PowerShell-Backup-Script
 # 
 # 
@@ -275,7 +275,7 @@ Function Make-Backup {
                       Source(s): $BackupDirs`n
                       Backup Location: $Destination"
         Write-au2matorLog -Type INFO -Text "Sending e-mail to $EmailTo from $EmailFrom (SMTPServer = $EmailSMTP) "
-        # The attachment is $log 
+        $Log=$Backupdir + (Get-Date -format yyyyMMdd) + "_" + $LogfileName + ".log"
         Send-MailMessage -To $EmailTo -From $EmailFrom -Subject $EmailSubject -Body $EmailBody -SmtpServer $EmailSMTP -attachment $Log 
     }
 }
