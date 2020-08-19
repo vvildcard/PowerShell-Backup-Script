@@ -40,6 +40,7 @@
 # Version 2.2 (2020-08-19)
 	FIX: Declared $Log variable for the email attachment
 	FIX: Don't include parent folder in the archive when using 7-Zip
+	CHANGE: Uze .7z extension when using 7-Zip
 
 # Version 2.1 (2020-07-06)
 	FIX: ERROR, WARNING and INFO log levels work for console output (the log is always DEBUG level)

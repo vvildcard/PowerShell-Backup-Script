@@ -77,7 +77,11 @@ $ExcludeString = $ExcludeString.Substring(0, $ExcludeString.Length - 1)
 
 # Set the staging directory and name the backup file or folder. 
 $BackupName = "Backup-$(Get-Date -format yyyy-MM-dd-hhmmss)"
-$ZipFileName = "$($BackupName).zip"
+if ($Use7ZIP) {
+    $ZipFileName = "$($BackupName).7z"
+} else {
+    $ZipFileName = "$($BackupName).zip"
+}
 if ($UseStaging -and $Zip) {
     $BackupDir = "$StagingDir"
 } else {
