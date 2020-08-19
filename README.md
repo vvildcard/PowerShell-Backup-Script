@@ -37,15 +37,16 @@
     EmailFrom (Default: "from@domain.com")
     EmailSMTP (Default; "smtp.domain.com")
 	
-# Version 2.2 (2020-07-06)
+# Version 2.2 (2020-08-19)
 	FIX: Declared $Log variable for the email attachment
+	FIX: Don't include parent folder in the archive when using 7-Zip
 
 # Version 2.1 (2020-07-06)
 	FIX: ERROR, WARNING and INFO log levels work for console output (the log is always DEBUG level)
 	DIF: Adjusted some logging output levels. 
 	DIF: Set LogLevel default to 2 (INFO). 
 
-# Version 2.0 (2020.07.02)
+# Version 2.0 (2020-07-02)
     NEW: All configurable variables are parameters. 
     FIX: Removed all author/computer-specific paths and messages. 
     FIX: Typos
