@@ -269,7 +269,7 @@ Function Make-Backup {
 
     # Send e-mail with reports as attachments
     if ($SendEmail -eq $True) {
-        $EmailSubject = "$env:COMPUTERNAME - Backup on $(get-date -format yyyy.MM.dd)"
+        $EmailSubject = "$env:COMPUTERNAME \ $BackupDirs - Backup on $(get-date -format yyyy.MM.dd)"
         $EmailBody = "Backup Script $(get-date -format yyyy.MM.dd) (last Month).`n
                       Computer: $env:COMPUTERNAME`n
                       Source(s): $BackupDirs`n
