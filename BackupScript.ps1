@@ -149,6 +149,7 @@ Function New-BackupDir {
 Function Remove-BackupDir {
     $RemoveFolder = Get-ChildItem $Destination | where { $_.Attributes -eq "Directory" } | Sort-Object -Property CreationTime -Descending:$False | Select-Object -First 1
     $RemoveFolder.FullName | Remove-Item -Recurse -Force 
+	$FolderRemovalInfo = "Deleted oldest zip backup: $RemoveFolder"
     Write-au2matorLog -Type INFO -Text "Deleted oldest directory backup: $RemoveFolder"
 }
 
@@ -156,8 +157,9 @@ Function Remove-BackupDir {
 # Delete Zip
 Function Remove-Zip {
     $RemoveZip = Get-ChildItem $Destination | where { $_.Attributes -eq "Archive" -and $_.Extension -eq ".zip" } | Sort-Object -Property CreationTime -Descending:$False | Select-Object -First 1
-    $RemoveZip.FullName | Remove-Item -Recurse -Force 
-    Write-au2matorLog -Type INFO -Text "Deleted oldest zip backup: $RemoveZip"
+    $RemoveZip.FullName | Remove-Item -Recurse -Force
+	$ZipRemovalInfo = "Deleted oldest zip backup: $RemoveZip"
+    Write-au2matorLog -Type INFO -Text "$ZipRemovalInfo"
 }
 
 # Check if BackupDirs and Destination is available
@@ -265,19 +267,6 @@ Function Make-Backup {
     if ($ErrorCount) {
 		Write-au2matorLog -Type WARNING -Text "$ErrorCount files could not be copied"
 	}
-
-
-    # Send e-mail with reports as attachments
-    if ($SendEmail -eq $True) {
-        $EmailSubject = "$env:COMPUTERNAME \ $BackupDirs - Backup on $(get-date -format yyyy.MM.dd)"
-        $EmailBody = "Backup Script $(get-date -format yyyy.MM.dd) (last Month).`n
-                      Computer: $env:COMPUTERNAME`n
-                      Source(s): $BackupDirs`n
-                      Backup Location: $Destination"
-        Write-au2matorLog -Type INFO -Text "Sending e-mail to $EmailTo from $EmailFrom (SMTPServer = $EmailSMTP) "
-        $Log=$logPath + "\" + (Get-Date -format yyyyMMdd) + "_" + $LogfileName + ".log"
-        Send-MailMessage -To $EmailTo -From $EmailFrom -Subject $EmailSubject -Body $EmailBody -SmtpServer $EmailSMTP -attachment $Log 
-    }
 }
 
 ### End of Functions
@@ -294,6 +283,7 @@ Write-au2matorLog -Type DEBUG -Text "Checking if there are more than $Versions D
 if ($count -gt $Versions) { 
     Write-au2matorLog -Type INFO -Text "Found $count Directory Backups"
     Remove-BackupDir
+	$FolderRemovalInfo
 }
 
 
@@ -303,7 +293,8 @@ if ($Zip) {
     Write-au2matorLog -Type DEBUG -Text "Checking if there are more than $Versions Zip in the BackupDir"
     if ($CountZip -gt $Versions) {
         Write-au2matorLog -Type INFO -Text "Found $CountZip Zip backups"
-        Remove-Zip 
+        Remove-Zip
+		$ZipRemovalInfo
     }
 }
 
@@ -386,6 +377,32 @@ if (-not $CheckDir) {
     $TotalDuration = "Total duration $($span.Hours) hours $($span.Minutes) minutes $($span.Seconds) seconds"
     Write-au2matorLog -Type INFO -Text "$TotalDuration"
 
+}
+
+# Send e-mail with reports as attachments
+if ($SendEmail) {
+	$EmailSubject = "$env:COMPUTERNAME $BackupDirs - Backup on $(get-date -format yyyy.MM.dd) - $ErrorCount errors"
+		if ($UseEncryption) {
+			$EmailBody = "Backup Script $(get-date).`n
+						Computer: $env:COMPUTERNAME`n
+						Source(s): $BackupDirs`n
+						Backup Location: $Destination`n
+						Backup Location: $Destination`n
+						Archive Password: $Password`n
+						$ZipRemovalInfo`n
+						$FolderRemovalInfo"
+		} else {
+			$EmailBody = "Backup Script $(get-date).`n
+						Computer: $env:COMPUTERNAME`n
+						Source(s): $BackupDirs`n
+						Backup Location: $Destination`n
+						$ZipRemovalInfo`n
+						$FolderRemovalInfo"
+		}
+		$Log=$logPath + "\" + (Get-Date -format yyyyMMdd) + "_" + $LogfileName + ".log"
+		Write-au2matorLog -Type INFO -Text "Sending e-mail to $EmailTo from $EmailFrom (SMTPServer = $EmailSMTP)"
+		Send-MailMessage -To $EmailTo -From $EmailFrom -Subject $EmailSubject -Body $EmailBody -SmtpServer $EmailSMTP -attachment $Log
+		Write-au2matorLog -Type INFO -Text "Send complete"
 }
 
 Write-au2matorLog -Type WARNING -Text "Backup Finished"
