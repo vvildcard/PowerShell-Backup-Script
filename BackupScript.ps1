@@ -83,8 +83,8 @@ foreach ($Entry in $ExcludeDirs) {
 $ExcludeString = $ExcludeString.Substring(0, $ExcludeString.Length - 1)
 [RegEx]$exclude = $ExcludeString
 
-# Set the staging directory and name the backup file or folder. 
-$BackupName = "Backup-$(Get-Date -format yyyy-MM-dd-hhmmss)"
+# Set the staging directory and name the backup file or folder.
+$BackupName = "$($BackupDirs -replace '(.{8}).+','$1')","-Backup-$(Get-Date -format yyyy-MM-dd)" -join ""
 if ($UseStaging -and $Zip) {
     $BackupDir = "$StagingDir"
 } else {
