@@ -57,7 +57,7 @@ Param(
 	[string]$Password = "Password", # Specify password ' will be ignored if RandomPw=$True
 	[bool]$UseRandomPw = $True, # Specify password or use Random - ignores the previous string
 	[string]$RandomPwLength = "10", # Specify password or use Random - ignores the previous string
-	[string]$RandomPwCharacters = "abcdefghiklmnoprstuvwxyzABCDEFGHKLMNOPRSTUVWXYZ1234567890!%$", # Available characters for the random password generator
+	[string]$RandomPwCharset = "abcdefghiklmnoprstuvwxyzABCDEFGHKLMNOPRSTUVWXYZ1234567890!%$", # Available characters for the random password generator
 
     # Email
     [bool]$SendEmail = $False, # $True will send report via email (SMTP send)
@@ -340,7 +340,7 @@ if (-not $CheckDir) {
 						}
 						
 						Write-au2matorLog -Type INFO -Text "Generating Random Password"
-						$SemiRandom = Get-RandomCharacters -length $RandomPwLength -characters $RandomPwCharacters
+						$SemiRandom = Get-RandomCharacters -length $RandomPwLength -characters $($RandomPwCharset * 64)
 						$Password = Scramble-String $SemiRandom
 					}
 				$7zipArgs = "a","-mx=$7zCompression","-t7z","-p$Password","-mhe","em=AES256"
