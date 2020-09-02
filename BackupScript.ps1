@@ -1,7 +1,7 @@
 ﻿########################################################
 # Name: BackupScript.ps1                              
-# Version: 2.1
-# LastModified: 2020-07-06
+# Version: 2.2
+# LastModified: 2020-09-02
 # GitHub: https://github.com/vvildcard/PowerShell-Backup-Script
 # 
 # 
@@ -17,7 +17,7 @@
 # Change LoggingLevel to 3 an get more output in Powershell Windows.
 # 
 # 
-# Forked: 2020-07-01
+# Forked: 2020-08-01
 # Forked by: [Ryan Dasso](https://github.com/vvildcard)
 # Forked from: v1.5
 # Creator: [Michael Seidl](https://github.com/Seidlm) aka [Techguy](http://www.techguy.at/)
@@ -79,9 +79,9 @@ $ExcludeString = $ExcludeString.Substring(0, $ExcludeString.Length - 1)
 $BackupName = "Backup-$(Get-Date -format yyyy-MM-dd-hhmmss)"
 $ZipFileName = "$($BackupName).zip"
 if ($UseStaging -and $Zip) {
-    $BackupDir = "$StagingDir"
+    $DestinationBackupDir = "$StagingDir"
 } else {
-    $BackupDir = "$Destination\$BackupName"
+    $DestinationBackupDir = "$Destination\$BackupName"
 }
 
 # Counters
@@ -135,19 +135,19 @@ function Write-au2matorLog {
 }
 
 
-# Create the BackupDir
+# Create the DestinationBackupDir
 Function New-BackupDir {
-    if (Test-Path $BackupDir) {
-        Write-au2matorLog -Type DEBUG -Text "Backup/Staging directory already exists: $BackupDir"
+    if (Test-Path $DestinationBackupDir) {
+        Write-au2matorLog -Type DEBUG -Text "Backup/Staging directory already exists: $DestinationBackupDir"
     } else {
-        New-Item -Path $BackupDir -ItemType Directory -ErrorAction SilentlyContinue | Out-Null
-        Write-au2matorLog -Type INFO -Text "Created backup/staging directory: $BackupDir"
+        New-Item -Path $DestinationBackupDir -ItemType Directory -ErrorAction SilentlyContinue | Out-Null
+        Write-au2matorLog -Type INFO -Text "Created backup/staging directory: $DestinationBackupDir"
     }
 }
 
 # Delete the BackupDir
 Function Remove-BackupDir {
-    $RemoveFolder = Get-ChildItem $Destination | where { $_.Attributes -eq "Directory" } | Sort-Object -Property CreationTime -Descending:$False | Select-Object -First 1
+    $RemoveFolder = Get-ChildItem $Destination | Where-Object { $_.Attributes -eq "Directory" } | Sort-Object -Property CreationTime -Descending:$False | Select-Object -First 1
     $RemoveFolder.FullName | Remove-Item -Recurse -Force 
     Write-au2matorLog -Type INFO -Text "Deleted oldest directory backup: $RemoveFolder"
 }
@@ -155,23 +155,23 @@ Function Remove-BackupDir {
 
 # Delete Zip
 Function Remove-Zip {
-    $RemoveZip = Get-ChildItem $Destination | where { $_.Attributes -eq "Archive" -and $_.Extension -eq ".zip" } | Sort-Object -Property CreationTime -Descending:$False | Select-Object -First 1
+    $RemoveZip = Get-ChildItem $Destination | Where-Object { $_.Attributes -eq "Archive" -and $_.Extension -eq ".zip" } | Sort-Object -Property CreationTime -Descending:$False | Select-Object -First 1
     $RemoveZip.FullName | Remove-Item -Recurse -Force 
     Write-au2matorLog -Type INFO -Text "Deleted oldest zip backup: $RemoveZip"
 }
 
-# Check if BackupDirs and Destination is available
+# Check if DestinationBackupDir and Destination is available
 function Check-Dir {
-    Write-au2matorLog -Type INFO -Text "Checking if BackupDir and Destination exists"
-    if (!(Test-Path $BackupDirs)) {
-        Write-au2matorLog -Type ERROR -Text "$BackupDirs does not exist"
+    Write-au2matorLog -Type INFO -Text "Checking if DestinationBackupDir and Destination exists"
+    if (!(Test-Path $DestinationBackupDir)) {
+        Write-au2matorLog -Type ERROR -Text "$DestinationBackupDir does not exist"
         return $False
     }
     if (!(Test-Path $Destination)) {
         Write-au2matorLog -Type ERROR -Text "$Destination does not exist"
         return $False
     } 
-    Write-au2matorLog -Type DEBUG -Text "Backup Dirs: $($BackupDirs)"
+    Write-au2matorLog -Type DEBUG -Text "Backup Dirs: $($DestinationBackupDir)"
     Write-au2matorLog -Type DEBUG -Text "Destination: $($Destination)"
     return $True
 }
@@ -232,26 +232,28 @@ Function Make-Backup {
     Remove-Variable errItems
 
     # Copy files to the backup location. 
-    Write-au2matorLog -Type WARNING -Text "Copying files to $BackupDir"
+    Write-au2matorLog -Type WARNING -Text "Copying files to $DestinationBackupDir"
     foreach ($Backup in $BackupDirs) {
-        $Index = $Backup.LastIndexOf("\")
-        $SplitBackup = $Backup.substring(0, $Index)
+        $BackupAsObject = Get-Item $Backup  # Convert the backup string path to an object to fix case sensitivity
         $Files = $BackupDirFiles[$Backup]
+        # Write-au2matorLog -Type DEBUG -Text "Files = $($Files)"
 
         foreach ($File in $Files) {
-            $restpath = $file.fullname.replace($SplitBackup, "")
+            $RelativePath = $File.FullName.Replace("$($BackupAsObject.Parent)\", "") # RelativePath has the parent folder(s) and file name, starting from the directory being backed up. 
+            # Example: "Desktop\myfile.txt"
+            Write-au2matorLog -Type DEBUG -Text "RelativePath = $($RelativePath)"
             try {
                 # Use New-Item to create the destination directory if it doesn't yet exist. Then copy the file.
-                New-Item -Path (Split-Path -Path $($BackupDir + $restpath) -Parent) -ItemType "directory" -Force -ErrorAction SilentlyContinue | Out-Null
-                Copy-Item -LiteralPath $file.fullname -Destination $($BackupDir + $restpath) -Force -ErrorAction SilentlyContinue | Out-Null
-                Write-au2matorLog -Type DEBUG -Text "'$($File.FullName)' copied"
+                New-Item -Path (Split-Path -Path "$DestinationBackupDir\$RelativePath" -Parent) -ItemType "directory" -Force -ErrorAction SilentlyContinue | Out-Null
+                Copy-Item -LiteralPath $File.FullName -Destination "$DestinationBackupDir\$RelativePath" -Force -ErrorAction Continue | Out-Null
+                Write-au2matorLog -Type DEBUG -Text "'$($File.FullName)' copied to '$DestinationBackupDir\$RelativePath'"
             }
             catch {
                 $ErrorCount++
                 Write-au2matorLog -Type ERROR -Text "'$($File.FullName)' returned an error and was not copied"
             }
-            $Items += (Get-item -LiteralPath $file.fullname).Length
-            $status = "Copy file {0} of {1} and copied {3} MB of {4} MB: {2}" -f $count, $SumItems, $file.Name, ("{0:N2}" -f ($Items / 1MB)).ToString(), ("{0:N2}" -f ($SumMB / 1MB)).ToString()
+            $Items += (Get-item -LiteralPath $File.FullName).Length
+            $status = "Copy file {0} of {1} and copied {3} MB of {4} MB: {2}" -f $count, $SumItems, $File.Name, ("{0:N2}" -f ($Items / 1MB)).ToString(), ("{0:N2}" -f ($SumMB / 1MB)).ToString()
             $Index = [array]::IndexOf($BackupDirs, $Backup) + 1
             $Text = "Copy data Location {0} of {1}" -f $Index , $BackupDirs.Count
             Write-Progress -Activity $Text $status -PercentComplete ($Items / $SumMB * 100)  
@@ -285,11 +287,11 @@ Function Make-Backup {
 # Create Backup Dir
 New-BackupDir
 Write-au2matorLog -Type INFO -Text "----------------------"
-Write-au2matorLog -Type INFO -Text "Start the Script"
+Write-au2matorLog -Type DEBUG -Text "Start the Script"
 
 # Check if BackupDir needs to be cleaned
-$Count = (Get-ChildItem $Destination | where { $_.Attributes -eq "Directory" }).count
-Write-au2matorLog -Type DEBUG -Text "Checking if there are more than $Versions Directories in the BackupDir"
+$Count = (Get-ChildItem $Destination | Where-Object { $_.Attributes -eq "Directory" }).count
+Write-au2matorLog -Type DEBUG -Text "Checking if there are more than $Versions Directories in the Destination"
 
 if ($count -gt $Versions) { 
     Write-au2matorLog -Type INFO -Text "Found $count Directory Backups"
@@ -299,8 +301,8 @@ if ($count -gt $Versions) {
 
 # Count the previous zip backups and remove the oldest (if needed)
 if ($Zip) {
-    $CountZip = (Get-ChildItem $Destination | where { $_.Attributes -eq "Archive" -and $_.Extension -eq ".zip" }).count
-    Write-au2matorLog -Type DEBUG -Text "Checking if there are more than $Versions Zip in the BackupDir"
+    $CountZip = (Get-ChildItem $Destination | Where-Object { $_.Attributes -eq "Archive" -and $_.Extension -eq ".zip" }).count
+    Write-au2matorLog -Type DEBUG -Text "Checking if there are more than $Versions Zip in the Destination"
     if ($CountZip -gt $Versions) {
         Write-au2matorLog -Type INFO -Text "Found $CountZip Zip backups"
         Remove-Zip 
@@ -335,18 +337,18 @@ if (-not $CheckDir) {
             }
             if ($Use7ZIP -and $UseStaging) { # Zip to the staging directory, then move to the destination.
                 # Usage: sz a -t7z <archive.zip> <source1> <source2> <sourceX>
-                sz a -t7z "$BackupDir\$ZipFileName" $BackupDir
+                sz a -t7z "$DestinationBackupDir\$ZipFileName" $DestinationBackupDir
                 Write-au2matorLog -Type INFO -Text "Moving Zip to $Destination"
-                Move-Item -Path "$BackupDir\$ZipFileName" -Destination $Destination
+                Move-Item -Path "$DestinationBackupDir\$ZipFileName" -Destination $Destination
 
             } else { # Zip straight to the BackupDir. 
-                sz a -t7z "$BackupDir\$ZipFileName" $BackupDir
+                sz a -t7z "$DestinationBackupDir\$ZipFileName" $DestinationBackupDir
             }
             
         }
 		if (-not $Use7ZIP) {  # Use powershell-native compression
 			Write-au2matorLog -Type DEBUG -Text "Using Powershell Compress-Archive"
-			#Write-au2matorLog -Type DEBUG -Text "BackupDir = $($BackupDir)"
+			#Write-au2matorLog -Type DEBUG -Text "DestinationBackupDir = $($DestinationBackupDir)"
 			#Write-au2matorLog -Type DEBUG -Text "StagingDir = $($StagingDir)"
 			#Write-au2matorLog -Type DEBUG -Text "ZipFileName = $($ZipFileName)"
 			#Write-au2matorLog -Type DEBUG -Text "Destination = $($Destination)"
@@ -355,9 +357,10 @@ if (-not $CheckDir) {
 			Write-au2matorLog -Type DEBUG -Text "Pausing for $SleepTime seconds to let things settle"
 			Start-sleep -Seconds ($SleepTime) 
 
-			Compress-Archive -Path "$BackupDir\*" -DestinationPath "$BackupDir\$ZipFileName"  -CompressionLevel Optimal -Force
+            Write-au2matorLog -Type DEBUG -Text "Starting compression"
+			Compress-Archive -Path "$DestinationBackupDir\*" -DestinationPath "$DestinationBackupDir\$ZipFileName"  -CompressionLevel Optimal -Force
 			Write-au2matorLog -Type INFO -Text "Moving Zip to $Destination"
-			Move-Item -Path "$BackupDir\$ZipFileName" -Destination $Destination
+			Move-Item -Path "$DestinationBackupDir\$ZipFileName" -Destination $Destination
 		}
 
         $ZipEnddate = Get-Date
@@ -365,16 +368,18 @@ if (-not $CheckDir) {
         $ZipDuration = "Zip duration $($span.Hours) hours $($span.Minutes) minutes $($span.Seconds - $SleepTime) seconds"
         Write-au2matorLog -Type INFO -Text "$ZipDuration"
 
+        # This would be a good place to put compression stats. 
+        # $TotalMB
 
         # Clean-up Staging
         if ($ClearStaging) {
             Write-au2matorLog -Type INFO -Text "Clearing Staging"
-            Get-ChildItem -Path $BackupDir -Recurse -Force | Remove-Item -Confirm:$False -Recurse -Force
+            Get-ChildItem -Path $DestinationBackupDir -Recurse -Force | Remove-Item -Confirm:$False -Recurse -Force
         }
 
-        # Clean-up BackupDir --- REMOVING: Combine this concept with the Staging concept. 
-        Get-ChildItem -Path $BackupDir -Recurse -Force | Remove-Item -Confirm:$False -Recurse
-        Get-Item -Path $BackupDir | Remove-Item -Confirm:$False -Recurse
+        # Clean-up DestinationBackupDir --- REMOVING: Combine this concept with the Staging concept. 
+        Get-ChildItem -Path $DestinationBackupDir -Recurse -Force | Remove-Item -Confirm:$False -Recurse
+        Get-Item -Path $DestinationBackupDir | Remove-Item -Confirm:$False -Recurse
     }
 
     $span = $ZipEndDate - $BackupStartDate
@@ -383,7 +388,7 @@ if (-not $CheckDir) {
 
 }
 
-Write-au2matorLog -Type WARNING -Text "Backup Finished"
+Write-au2matorLog -Type WARNING -Text "Backup $BackupName Finished"
 
 #Write-Host "Press any key to close ..."
 #$x = $host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
