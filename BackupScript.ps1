@@ -136,7 +136,7 @@ function Write-au2matorLog {
 
 
 # Create the DestinationBackupDir
-Function New-BackupDir {
+Function NewBackupDir {
     if (Test-Path $DestinationBackupDir) {
         Write-au2matorLog -Type DEBUG -Text "Backup/Staging directory already exists: $DestinationBackupDir"
     } else {
@@ -146,7 +146,7 @@ Function New-BackupDir {
 }
 
 # Delete the BackupDir
-Function Remove-BackupDir {
+Function RemoveBackupDir {
     $RemoveFolder = Get-ChildItem $Destination | Where-Object { $_.Attributes -eq "Directory" } | Sort-Object -Property CreationTime -Descending:$False | Select-Object -First 1
     $RemoveFolder.FullName | Remove-Item -Recurse -Force 
     Write-au2matorLog -Type INFO -Text "Deleted oldest directory backup: $RemoveFolder"
@@ -154,14 +154,14 @@ Function Remove-BackupDir {
 
 
 # Delete Zip
-Function Remove-Zip {
+Function RemoveZip {
     $RemoveZip = Get-ChildItem $Destination | Where-Object { $_.Attributes -eq "Archive" -and $_.Extension -eq ".zip" } | Sort-Object -Property CreationTime -Descending:$False | Select-Object -First 1
     $RemoveZip.FullName | Remove-Item -Recurse -Force 
     Write-au2matorLog -Type INFO -Text "Deleted oldest zip backup: $RemoveZip"
 }
 
 # Check if DestinationBackupDir and Destination is available
-function Check-Dir {
+function CheckDir {
     Write-au2matorLog -Type INFO -Text "Checking if DestinationBackupDir and Destination exists"
     if (!(Test-Path $DestinationBackupDir)) {
         Write-au2matorLog -Type ERROR -Text "$DestinationBackupDir does not exist"
@@ -178,7 +178,7 @@ function Check-Dir {
 
 
 # Save all the Files
-Function Make-Backup {
+Function MakeBackup {
     Write-au2matorLog -Type INFO -Text "Starting the Backup"
     $BackupDirFiles = @{ } # Hash of BackupDir & Files
     $Files = @()
@@ -285,7 +285,7 @@ Function Make-Backup {
 ### End of Functions
 
 # Create Backup Dir
-New-BackupDir
+NewBackupDir
 Write-au2matorLog -Type INFO -Text "----------------------"
 Write-au2matorLog -Type DEBUG -Text "Start the Script"
 
@@ -295,7 +295,7 @@ Write-au2matorLog -Type DEBUG -Text "Checking if there are more than $Versions D
 
 if ($count -gt $Versions) { 
     Write-au2matorLog -Type INFO -Text "Found $count Directory Backups"
-    Remove-BackupDir
+    RemoveBackupDir
 }
 
 
@@ -305,16 +305,16 @@ if ($Zip) {
     Write-au2matorLog -Type DEBUG -Text "Checking if there are more than $Versions Zip in the Destination"
     if ($CountZip -gt $Versions) {
         Write-au2matorLog -Type INFO -Text "Found $CountZip Zip backups"
-        Remove-Zip 
+        RemoveZip 
     }
 }
 
 # Start the Backup
-$CheckDir = Check-Dir
+$CheckDir = CheckDir
 if (-not $CheckDir) {
     Write-au2matorLog -Type ERROR -Text "One of the Directories are not available, Script has stopped"
 } else {
-    Make-Backup
+    MakeBackup
 
     $CopyEndDate = Get-Date
     $span = $CopyEnddate - $BackupStartDate
@@ -392,3 +392,88 @@ Write-au2matorLog -Type WARNING -Text "Backup $BackupName Finished"
 
 #Write-Host "Press any key to close ..."
 #$x = $host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+
+# SIG # Begin signature block
+# MIIPVAYJKoZIhvcNAQcCoIIPRTCCD0ECAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
+# gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUJ2DD51QVjuvmUhcC/y/TtZ/u
+# eqWgggzFMIIFwDCCA6igAwIBAgITFgAAAAR84b1HddGLUAAAAAAABDANBgkqhkiG
+# 9w0BAQsFADAdMRswGQYDVQQDExJFVFNNTU9NTlBLSU9SMDItQ0EwHhcNMTUwOTIz
+# MTYxNTA1WhcNMzEwOTIxMjAzMDIzWjBJMRMwEQYKCZImiZPyLGQBGRYDY29tMRcw
+# FQYKCZImiZPyLGQBGRYHamhhY29ycDEZMBcGA1UEAxMQRVRTTU1PUEtJQ0EwMi1D
+# QTCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBALdVbFlHVe/fmyEbMyuT
+# CdP0Q5SUwQEjvzy49EV+ld6Z2qCQkVdUErozBr/ZEEIGu9HzQAgQOHeJ1nTb23Hz
+# v4XtrLHKyDGXAoTfPfCEVmsvmf7TfC7SkEJku3xNfIJu5GADmj7+lxunbNC/24xc
+# kc4IF2RApxir5ewm6obANVrysRhCPqORSIm3mIVNSfZyo7OUnmPH1oauf6uCVx/+
+# Rn+ft5iGvECgW9RE7OvKiH/UIpkJgaodD5XjsFlNnx8QWwmcL6bplgqcRJG/uYvi
+# t5HlfAX8f7zQLp2BMOr/jR3+GMxqdcYEvYHIJ3CTCLKd03ITKKztTovZkP4OHCec
+# rXECAwEAAaOCAcswggHHMBAGCSsGAQQBgjcVAQQDAgEAMB0GA1UdDgQWBBSVJt/U
+# u9LtOgzcbod0rZmQ05457jAZBgkrBgEEAYI3FAIEDB4KAFMAdQBiAEMAQTALBgNV
+# HQ8EBAMCAYYwDwYDVR0TAQH/BAUwAwEB/zAfBgNVHSMEGDAWgBTPANSGpoGz6YLn
+# F9x4VRV+T0k5ZDB/BgNVHR8EeDB2MHSgcqBwhjZodHRwOi8vTU1PTU5QS0lDUkwu
+# amtoeS5jb20vQ0RQL0VUU01NT01OUEtJT1IwMi1DQS5jcmyGNmh0dHA6Ly9CTU9N
+# TlBLSUNSTC5qa2h5LmNvbS9DRFAvRVRTTU1PTU5QS0lPUjAyLUNBLmNybDCBuAYI
+# KwYBBQUHAQEEgaswgagwUgYIKwYBBQUHMAGGRmh0dHA6Ly9NTU9NTlBLSUNSTC5q
+# a2h5LmNvbS9DRFAvRVRTTU1PTU5QS0lPUjAyX0VUU01NT01OUEtJT1IwMi1DQS5j
+# cnQwUgYIKwYBBQUHMAGGRmh0dHA6Ly9CTU9NTlBLSUNSTC5qa2h5LmNvbS9DRFAv
+# RVRTTU1PTU5QS0lPUjAyX0VUU01NT01OUEtJT1IwMi1DQS5jcnQwDQYJKoZIhvcN
+# AQELBQADggIBADRUPg0di2PCj2+gbaYUWBKuPkE1BAW9vvvwzin1EjJIRO3WwjlD
+# n0HiHRrttaJtay/4DiJIFw/6l5fq+/HXZsk6K7eOegdhPxQ9XfAd+Yy8Tz1uibD2
+# vKoU5s8xA9d/GYUQs0ON/HwzpamMELj5mmHPz/Wyl2V0rdLf6DlOJQ5Ac0j5TKV1
+# 4ZwXCInEYekg6RYj15l7KyhEaIxMh/5TLJ9rkM19N26ssECxAoZH4/HnVe5WmXkJ
+# xjE3+VpSwVSkHHOtY5GHnRiQuSHVDWm3HLS9Yv6Puu0WbpO4URK352+jzpufF8cG
+# zkTj9gMJdUZjqjcxNCMQdUiATfXsvG7Mq4LQwWA46fGPN1cp/pNDl9fyHCTsiJYd
+# DqcpKkfA6XEFNfX/c4cl9nCdVwSal479IATNeMor+vhla228jv/Qd913xS1DCsVk
+# sHmXj2i1pO4IXyZwr94rax9EHaRcSMqU9LlU5j0des09MFEFFUkbaKxy54N9vpBp
+# infAHHgryzuBxb9FnK0SNNLO200FcihRK9qKL+7lJc3k0B06d/CxWVyh/KdjIbMn
+# xRa7SmPyyPHQ1UYELqIdqt7Il+erSSJKUFyrboDc4hA95kx8n5+/mBMZ2TfSk8wl
+# nPFzM9HVt+pNmH5rPhXOpgSv5fzq/j+F4w5Z8znTtdBjZIYHrqhCzgBaMIIG/TCC
+# BeWgAwIBAgITUAAGmGLjUbe2rIz1RwAAAAaYYjANBgkqhkiG9w0BAQsFADBJMRMw
+# EQYKCZImiZPyLGQBGRYDY29tMRcwFQYKCZImiZPyLGQBGRYHamhhY29ycDEZMBcG
+# A1UEAxMQRVRTTU1PUEtJQ0EwMi1DQTAeFw0yMDA1MDEyMTM2MTNaFw0yMzA1MDEy
+# MTM2MTNaMB8xHTAbBgNVBAMMFFJEYXNzb0BqYWNraGVucnkuY29tMIIBIjANBgkq
+# hkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAzsMFGE6bDu/k/+NXyrQS4oXCQ/XlCZ0/
+# YE7JAP0lATbYs1vkLygrnZ8cfY+rXi8Z+gGAOog89KChqPDSdN/IjZ2156oFK+LP
+# gHyEBJ/ucjzv1+reezbevjqbfy0ibRfI/v4+HGPl1RkXsjWQfnCFhhC7oyIyqJpu
+# YwvHtxPWIeb7UNLvlLGLpy/Xbz3HkPurhWhL/OiRiwTkZmxGUoibDRB0fPoDBcjf
+# 5mKNw3wB/rRMlRvkx6QQxGnG95FFYIaIjRwzih0QDI/y4tyrkn2YeqiIqZcn9pGO
+# 2EAKEcvG5xXXOXO7SHM6jxn2INxj3QOzgO1k9II/jhQDea1+hRo0FQIDAQABo4IE
+# BjCCBAIwPQYJKwYBBAGCNxUHBDAwLgYmKwYBBAGCNxUIh9rwZYKHuiuD0Y0/hfq8
+# JYf34nplgrmlMoPh+lMCAWQCAQkwEwYDVR0lBAwwCgYIKwYBBQUHAwMwCwYDVR0P
+# BAQDAgeAMBsGCSsGAQQBgjcVCgQOMAwwCgYIKwYBBQUHAwMwHQYDVR0OBBYEFAix
+# wFYolUgH+0is7RdsctliJpO/MB8GA1UdIwQYMBaAFJUm39S70u06DNxuh3StmZDT
+# njnuMIH2BgNVHR8Ege4wgeswgeiggeWggeKGOWh0dHA6Ly9FVFNNTU9QS0lDQTAy
+# LkpIQUNPUlAuQ09NL0NEUC9FVFNNTU9QS0lDQTAyLUNBLmNybIY5aHR0cDovL0VU
+# U0JNT1BLSUNBMDIuamhhY29ycC5jb20vQ0RQL0VUU01NT1BLSUNBMDItQ0EuY3Js
+# hjRodHRwOi8vTU1PTU5QS0lDUkwuamtoeS5jb20vQ0RQL0VUU01NT1BLSUNBMDIt
+# Q0EuY3JshjRodHRwOi8vQk1PTU5QS0lDUkwuamtoeS5jb20vQ0RQL0VUU01NT1BL
+# SUNBMDItQ0EuY3JsMIICRwYIKwYBBQUHAQEEggI5MIICNTBnBggrBgEFBQcwAoZb
+# ZmlsZTovL2M6L3dpbmRvd3Mvc3lzdGVtMzIvQ2VydFNydi9DZXJ0RW5yb2wvRVRT
+# TU1PUEtJQ0EwMi5qaGFjb3JwLmNvbV9FVFNNTU9QS0lDQTAyLUNBLmNydDBQBggr
+# BgEFBQcwAoZEZmlsZTovL0M6L2luZXRwdWIvQ0RQL0VUU01NT1BLSUNBMDIuamhh
+# Y29ycC5jb21fRVRTTU1PUEtJQ0EwMi1DQS5jcnQwXwYIKwYBBQUHMAKGU2h0dHA6
+# Ly9FVFNNTU9QS0lDQTAyLkpIQUNPUlAuQ09NL0NEUC9FVFNNTU9QS0lDQTAyLmpo
+# YWNvcnAuY29tX0VUU01NT1BLSUNBMDItQ0EuY3J0MF8GCCsGAQUFBzAChlNodHRw
+# Oi8vRVRTQk1PUEtJQ0EwMi5qaGFjb3JwLmNvbS9DRFAvRVRTTU1PUEtJQ0EwMi5q
+# aGFjb3JwLmNvbV9FVFNNTU9QS0lDQTAyLUNBLmNydDBaBggrBgEFBQcwAoZOaHR0
+# cDovL01NT01OUEtJQ1JMLmpraHkuY29tL0NEUC9FVFNNTU9QS0lDQTAyLmpoYWNv
+# cnAuY29tX0VUU01NT1BLSUNBMDItQ0EuY3J0MFoGCCsGAQUFBzAChk5odHRwOi8v
+# Qk1PTU5QS0lDUkwuamtoeS5jb20vQ0RQL0VUU01NT1BLSUNBMDIuamhhY29ycC5j
+# b21fRVRTTU1PUEtJQ0EwMi1DQS5jcnQwDQYJKoZIhvcNAQELBQADggEBAAWzlkE9
+# 4vy2bXxiWM0ln0pcNThh6Y4mX+vKcCKMMIT1nT+wXRU/LCLaMKPXs61IN+RvnOzu
+# /R9nilgh/oRIkeu3QxgU/EyidkWnnInEwRf2eNK3eUc+4s8I4mEjn+/5wBvRnH6O
+# /D9DkVUlEgehlFNxVr3WhTePiKrLfA/zaDVtwNUZgAb8Ze77MJDF5JaKv7hAWiAN
+# 8Rj13FZj6oJzCzl4w1lDR9tbWs+sLdhwKHHNpMcxrqSMzFQbnVv//GTELbHx+I6R
+# rKwwzeMqfu8kSNfiV86T9lTanv0N6BHQ1U9Hh+yoqlx0cwxHNdOYmhkMhDqX1tq1
+# XOEJ9o9PX7v31kYxggH5MIIB9QIBATBgMEkxEzARBgoJkiaJk/IsZAEZFgNjb20x
+# FzAVBgoJkiaJk/IsZAEZFgdqaGFjb3JwMRkwFwYDVQQDExBFVFNNTU9QS0lDQTAy
+# LUNBAhNQAAaYYuNRt7asjPVHAAAABphiMAkGBSsOAwIaBQCgcDAQBgorBgEEAYI3
+# AgEMMQIwADAZBgkqhkiG9w0BCQMxDAYKKwYBBAGCNwIBBDAcBgorBgEEAYI3AgEL
+# MQ4wDAYKKwYBBAGCNwIBFTAjBgkqhkiG9w0BCQQxFgQUhlDjUtwlPO0wjA+6ZMVu
+# iJbWiswwDQYJKoZIhvcNAQEBBQAEggEAEoodKTQkoGDxe+awPjlvKG/ImTYq4Hty
+# +dMFcQ9ar9pw1RB678UyD8Cn8S4BeflnIbqi0geVlAbWf3yVNyLpl8KfrTE4sW6P
+# 8aKotI6ap7+kYfFKjJDwfyxwzihqhT81XXLRWjqEuRuhALEoY5YGfVz40MDiHlZe
+# 8JLC/EJD1yYTcyHQCBR+ovf4nETuB4ktPZ4Rkcuu4RhXdPpIVfXg6OJ+nJKn4a1U
+# p0e1iCY5gj76kavMNdnHLcgTJXfZybwJJuwJlkFDQtbQD8d4AwauR+ufno2J9Ov/
+# eb//75SXmZtY304pfSV4P8SoOU2iPTXMusD3aq8ce68a8XvbMquV2A==
+# SIG # End signature block
