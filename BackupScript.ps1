@@ -1,6 +1,6 @@
 ﻿########################################################
 # Name: BackupScript.ps1                              
-# Version: 2.3.1
+# Version: 2.3.3
 # LastModified: 2020-12-09
 # GitHub: https://github.com/vvildcard/PowerShell-Backup-Script
 # 
@@ -13,7 +13,7 @@
 # 
 # Usage:
 # BackupScript.ps1 -BackupDirs "C:\path\to\backup", "C:\another\path\" -Destination "C:\path\to\put\the\backup"
-# Change variables with parameters (ex: Add "-UseStaging $False" to turn off staging)
+# Change variables with parameters (ex: Add -NoStaging to turn off staging)
 # Change LoggingLevel to 3 an get more output in Powershell Windows.
 # 
 # 
@@ -22,11 +22,16 @@
 # Forked from: v1.5
 # Creator: [Michael Seidl](https://github.com/Seidlm) aka [Techguy](http://www.techguy.at/)
 # PowerShell Self-Service Web Portal at www.au2mator.com/PowerShell
-
+# 
+# Feature Requests/Ideas
+#   Create txt file index of files in a zip backup.
+#   ZIP directly into the archive file. 
 
 ### Variables
 
 Param(
+    [string]$Versions = "2", # Default number of backups you want to keep. 
+
     # Source/Dest
     [Parameter(Mandatory=$True)][string[]][Alias("b","s")]$BackupDirs, # Folders you want to backup. Comma-delimited. 
         # To hard-code the source paths, set the above line to: $BackupDirs = @("C:\path\to\backup", "C:\another\path\")
@@ -38,21 +43,23 @@ Param(
     [string]$TempDir = "$env:TEMP\BackupScript", # Temporary location for logging and zipping. 
     [string]$LogPath = "$TempDir\Logging",
     [string]$LogFileName = "Log", #  Name
-    [string]$LoggingLevel = 2, # LoggingLevel only for Output in Powershell Window, 1=smart, 3=Heavy
+    [int]$LoggingLevel = 2, # LoggingLevel only for Output in Powershell Window, 1=smart, 3=Heavy
 
     # Zip
-    [switch]$Zip, # Zip the backup. 
-    [switch]$Use7ZIP = $False, # Make sure 7-Zip is installed. (https://7-zip.org)
+    [switch]$NoZip, # Don't Zip the backup.
+    [switch]$Use7ZIP, # Make sure 7-Zip is installed. (https://7-zip.org)
     [string]$7zPath = "$env:ProgramFiles\7-Zip\7z.exe",
-    [string]$Versions = "2", # Number of backups you want to keep. 
 
-    # Staging -- Only used if Zip = $True.
-    [switch]$NoStaging, # If set, $Destination will be used for Staging.
-    [string]$StagingDir = "$TempDir\Staging", # Temporary location zipping. 
-    [switch]$ClearStaging, # If $True: Delete StagingDir after backup. 
+    # Staging -- Ignored when $NoZip is specified. Staging moves all files to a temporary directory before zipping them for performance improvement,
+    #    especially when copying over a slow link (it's faster to copy a single large zip file than many small files across the network or to a USB 
+    #    device). Staging keeps all the heavy lifting on the local disk, but can also use a lot of space. You need enough space to hold the temporary
+    #    copy of the backed-up files and the ZIP of those files. 
+    [switch]$NoStaging, # Sets $UseStaging. $Destination will be used for Staging.
+    [string]$StagingDir = "$TempDir\Staging", # Set your own location for staging. 
+    [switch]$NoDeleteStaging, # Don't delete StagingDir after backup. 
 
     # Email
-    [switch]$SendEmail = $False, # $True will send report via email (SMTP send)
+    [switch]$SendEmail, # $True will send report via email (SMTP send)
     [string]$EmailTo = 'test@domain.com', # List of recipients. For multiple users, use "User01 &lt;user01@example.com&gt;" ,"User02 &lt;user02@example.com&gt;"
     [string]$EmailFrom = 'from@domain.com', # Sender/ReplyTo
     [string]$EmailSMTP = 'smtp.domain.com' # SMTP server address
@@ -75,8 +82,9 @@ $ExcludeString = $ExcludeString.Substring(0, $ExcludeString.Length - 1)
 
 # Set the staging directory and name the backup file or folder. 
 $BackupName = "Backup-$(Get-Date -format yyyy-MM-dd-hhmmss)"
-$ZipFileName = "$($BackupName).zip"
-if ($NoStaging) { $UseStaging = $True } else { $UseStaging = $False }  # Configure Staging
+if ($NoZip) { $Zip = $False } else { $Zip = $True; $ZipFileName = "$($BackupName).zip" }
+if ($NoStaging) { $UseStaging = $False } else { $UseStaging = $True }
+if ($NoDeleteStaging) { $ClearStaging = $False } else { $ClearStaging = $True }
 if ($UseStaging -and $Zip) {
     $DestinationBackupDir = "$StagingDir"
 } else {
@@ -144,17 +152,16 @@ Function NewBackupDir {
     }
 }
 
-# Delete the BackupDir
-Function RemoveBackupDir {
-    $RemoveFolder = Get-ChildItem $Destination | Where-Object { $_.Attributes -eq "Directory" } | Sort-Object -Property CreationTime -Descending:$False | Select-Object -First 1
+# Delete the oldest Directory backup
+Function RemoveDirBackup {
+    $RemoveFolder = Get-ChildItem $Destination | Where-Object { ($_.Attributes -eq "Directory") -and ($_.Name -like "Backup-????-??-??-??????") } | Sort-Object -Property CreationTime -Descending:$False | Select-Object -First 1
     $RemoveFolder.FullName | Remove-Item -Recurse -Force 
     Write-au2matorLog -Type INFO -Text "Deleted oldest directory backup: $RemoveFolder"
 }
 
-
-# Delete Zip
+# Delete the oldest Zip backup
 Function RemoveZip {
-    $RemoveZip = Get-ChildItem $Destination | Where-Object { $_.Attributes -eq "Archive" -and $_.Extension -eq ".zip" } | Sort-Object -Property CreationTime -Descending:$False | Select-Object -First 1
+    $RemoveZip = Get-ChildItem $Destination | Where-Object { $_.Attributes -eq "Archive" -and $_.Name -like "Backup-????-??-??-??????.zip" } | Sort-Object -Property CreationTime -Descending:$False | Select-Object -First 1
     $RemoveZip.FullName | Remove-Item -Recurse -Force 
     Write-au2matorLog -Type INFO -Text "Deleted oldest zip backup: $RemoveZip"
 }
@@ -230,6 +237,12 @@ Function MakeBackup {
     Remove-Variable errItem
     Remove-Variable errItems
 
+    # Count the previous directory backups and remove the oldest (if needed)
+    if ($count -gt $Versions) { 
+        Write-au2matorLog -Type INFO -Text "Found $count Directory Backups"
+        RemoveDirBackup
+    }
+
     # Copy files to the backup location. 
     Write-au2matorLog -Type WARNING -Text "Copying files to $DestinationBackupDir"
     foreach ($Backup in $BackupDirs) {
@@ -292,22 +305,6 @@ Write-au2matorLog -Type DEBUG -Text "Start the Script"
 $Count = (Get-ChildItem $Destination | Where-Object { $_.Attributes -eq "Directory" }).count
 Write-au2matorLog -Type DEBUG -Text "Checking if there are more than $Versions Directories in the Destination"
 
-if ($count -gt $Versions) { 
-    Write-au2matorLog -Type INFO -Text "Found $count Directory Backups"
-    RemoveBackupDir
-}
-
-
-# Count the previous zip backups and remove the oldest (if needed)
-if ($Zip) {
-    $CountZip = (Get-ChildItem $Destination | Where-Object { $_.Attributes -eq "Archive" -and $_.Extension -eq ".zip" }).count
-    Write-au2matorLog -Type DEBUG -Text "Checking if there are more than $Versions Zip in the Destination"
-    if ($CountZip -gt $Versions) {
-        Write-au2matorLog -Type INFO -Text "Found $CountZip Zip backups"
-        RemoveZip 
-    }
-}
-
 # Start the Backup
 $CheckDir = CheckDir
 if (-not $CheckDir) {
@@ -316,12 +313,19 @@ if (-not $CheckDir) {
     MakeBackup
 
     $CopyEndDate = Get-Date
-    $span = $CopyEnddate - $BackupStartDate
-    Write-au2matorLog -Type INFO -Text "Copy duration $($span.Hours) hours $($span.Minutes) minutes $($span.Seconds) seconds"
+    $CopySpan = $CopyEnddate - $BackupStartDate
+    Write-au2matorLog -Type INFO -Text "Copy duration $($CopySpan.Hours) hours $($CopySpan.Minutes) minutes $($CopySpan.Seconds) seconds"
     Write-au2matorLog -Type INFO -Text "----------------------"
 
     if ($Zip) {
         $ZipStartDate = Get-Date
+        $CountZip = (Get-ChildItem $Destination | Where-Object { $_.Attributes -eq "Archive" -and $_.Extension -eq ".zip" }).count
+        # Count the previous zip backups and remove the oldest (if needed)
+        Write-au2matorLog -Type DEBUG -Text "Checking if there are more than $Versions Zip in the Destination"
+        if ($CountZip -gt $Versions) {
+            Write-au2matorLog -Type INFO -Text "Found $CountZip Zip backups"
+            RemoveZip 
+        }
         Write-au2matorLog -Type INFO -Text "Compressing the Backup Destination"
         if ($Use7ZIP) {
             Write-au2matorLog -Type DEBUG -Text "Use 7-Zip"
@@ -363,8 +367,8 @@ if (-not $CheckDir) {
 		}
 
         $ZipEnddate = Get-Date
-        $span = $ZipEndDate - $ZipStartDate
-        $ZipDuration = "Zip duration $($span.Hours) hours $($span.Minutes) minutes $($span.Seconds - $SleepTime) seconds"
+        $ZipSpan = $ZipEndDate - $ZipStartDate
+        $ZipDuration = "Zip duration $($ZipSpan.Hours) hours $($ZipSpan.Minutes) minutes $($ZipSpan.Seconds - $SleepTime) seconds"
         Write-au2matorLog -Type INFO -Text "$ZipDuration"
 
         # This would be a good place to put compression stats. 
@@ -381,8 +385,9 @@ if (-not $CheckDir) {
         Get-Item -Path $DestinationBackupDir | Remove-Item -Confirm:$False -Recurse
     }
 
-    $span = $ZipEndDate - $BackupStartDate
-    $TotalDuration = "Total duration $($span.Hours) hours $($span.Minutes) minutes $($span.Seconds) seconds"
+    $TotalEndDate = Get-Date
+    $TotalSpan = $TotalEndDate - $BackupStartDate
+    $TotalDuration = "Total duration $($TotalSpan.Hours) hours $($TotalSpan.Minutes) minutes $($TotalSpan.Seconds) seconds"
     Write-au2matorLog -Type INFO -Text "$TotalDuration"
 
 }
@@ -395,8 +400,8 @@ Write-au2matorLog -Type WARNING -Text "Backup $BackupName Finished"
 # SIG # Begin signature block
 # MIIPVAYJKoZIhvcNAQcCoIIPRTCCD0ECAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU3AzVHZKYKPKkbBQad4DXa1wq
-# AsKgggzFMIIFwDCCA6igAwIBAgITFgAAAAR84b1HddGLUAAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUliLu0L7aguT7x9ei0GCt2D/Q
+# Cv2gggzFMIIFwDCCA6igAwIBAgITFgAAAAR84b1HddGLUAAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAdMRswGQYDVQQDExJFVFNNTU9NTlBLSU9SMDItQ0EwHhcNMTUwOTIz
 # MTYxNTA1WhcNMzEwOTIxMjAzMDIzWjBJMRMwEQYKCZImiZPyLGQBGRYDY29tMRcw
 # FQYKCZImiZPyLGQBGRYHamhhY29ycDEZMBcGA1UEAxMQRVRTTU1PUEtJQ0EwMi1D
@@ -468,11 +473,11 @@ Write-au2matorLog -Type WARNING -Text "Backup $BackupName Finished"
 # FzAVBgoJkiaJk/IsZAEZFgdqaGFjb3JwMRkwFwYDVQQDExBFVFNNTU9QS0lDQTAy
 # LUNBAhNQAAaYYuNRt7asjPVHAAAABphiMAkGBSsOAwIaBQCgcDAQBgorBgEEAYI3
 # AgEMMQIwADAZBgkqhkiG9w0BCQMxDAYKKwYBBAGCNwIBBDAcBgorBgEEAYI3AgEL
-# MQ4wDAYKKwYBBAGCNwIBFTAjBgkqhkiG9w0BCQQxFgQU1DLYVyVTYmEQsaIj0PUf
-# NP2N+6owDQYJKoZIhvcNAQEBBQAEggEARG6b3trUGKR0EnfocKhZSEV55rQSJIEr
-# vwgOP+Uh6jb0WJ+ZI6G834NgYG3utsB3Y11/vSYcwYLXTqdmW3kkAJkJcALyOhn+
-# mxDdOeUuWN1UXNEOCqmO45qcm0Ar6XEyUc4DxZkzGc9zUVLcOnFRjit2QCJwHrqA
-# CYP5gL98bASiTtEO4XyKfqmJtr4/u+FICOaAodCjuuQ6civBCTNHNrCWs3dF2cvx
-# vrdeaFlAV4nhvaJbBn4/UX5+VPXEx3JOl3HgIFQQuARhUtbk8oWKzJO6vSTlFAAC
-# gth69zcu837nASebJmRUTzdWKI4xWj1nR31ZkyLKDtyKOaiqMortkg==
+# MQ4wDAYKKwYBBAGCNwIBFTAjBgkqhkiG9w0BCQQxFgQU+HShchr/ZmHp46Wh/UK2
+# Ni/7LLowDQYJKoZIhvcNAQEBBQAEggEAqb9m1rlGOBssf2NAVR9aLAbMhUp2x9uN
+# lf2afe9LpC3gTFCUMtL5jSCpofby5ixngLxmp5Fcs3KAKFOH3llbZSRA5OTW4aNj
+# 5Uc7YRB054sVKJbePJrdCSki5eRCP6h7ZvCda4+JnQ55tYFcDp87xe/58aZ/QJPA
+# G4Xo4nJgMJfmcVWwlAHTt5RU8DmYsEkhQmT9iFsyVYBwgASE1/vJrn2zi/QsTaVh
+# 9VgZCU+vMMpqD6Gciu4v1M1wpOV9ZuofM0tvKz/vxXkPnM6ki/l+qJdhVhFkFIH9
+# ezS9D8OikIumEckzVdAsCw4LYdU3XNWoXXoHQdnv0lMRSe9tl44Mgg==
 # SIG # End signature block
