@@ -1,6 +1,6 @@
 ﻿########################################################
 # Name: BackupScript.ps1                              
-# Version: 2.3
+# Version: 2.3.1
 # LastModified: 2020-12-09
 # GitHub: https://github.com/vvildcard/PowerShell-Backup-Script
 # 
@@ -47,7 +47,7 @@ Param(
     [string]$Versions = "2", # Number of backups you want to keep. 
 
     # Staging -- Only used if Zip = $True.
-    [switch]$UseStaging, # If set, $Destination will be used for Staging.
+    [switch]$NoStaging, # If set, $Destination will be used for Staging.
     [string]$StagingDir = "$TempDir\Staging", # Temporary location zipping. 
     [switch]$ClearStaging, # If $True: Delete StagingDir after backup. 
 
@@ -76,6 +76,7 @@ $ExcludeString = $ExcludeString.Substring(0, $ExcludeString.Length - 1)
 # Set the staging directory and name the backup file or folder. 
 $BackupName = "Backup-$(Get-Date -format yyyy-MM-dd-hhmmss)"
 $ZipFileName = "$($BackupName).zip"
+if ($NoStaging) { $UseStaging = $True } else { $UseStaging = $False }  # Configure Staging
 if ($UseStaging -and $Zip) {
     $DestinationBackupDir = "$StagingDir"
 } else {
@@ -394,8 +395,8 @@ Write-au2matorLog -Type WARNING -Text "Backup $BackupName Finished"
 # SIG # Begin signature block
 # MIIPVAYJKoZIhvcNAQcCoIIPRTCCD0ECAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUmlcV2g9YXmFXjtedxov2eo3e
-# 4cSgggzFMIIFwDCCA6igAwIBAgITFgAAAAR84b1HddGLUAAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU3AzVHZKYKPKkbBQad4DXa1wq
+# AsKgggzFMIIFwDCCA6igAwIBAgITFgAAAAR84b1HddGLUAAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAdMRswGQYDVQQDExJFVFNNTU9NTlBLSU9SMDItQ0EwHhcNMTUwOTIz
 # MTYxNTA1WhcNMzEwOTIxMjAzMDIzWjBJMRMwEQYKCZImiZPyLGQBGRYDY29tMRcw
 # FQYKCZImiZPyLGQBGRYHamhhY29ycDEZMBcGA1UEAxMQRVRTTU1PUEtJQ0EwMi1D
@@ -467,11 +468,11 @@ Write-au2matorLog -Type WARNING -Text "Backup $BackupName Finished"
 # FzAVBgoJkiaJk/IsZAEZFgdqaGFjb3JwMRkwFwYDVQQDExBFVFNNTU9QS0lDQTAy
 # LUNBAhNQAAaYYuNRt7asjPVHAAAABphiMAkGBSsOAwIaBQCgcDAQBgorBgEEAYI3
 # AgEMMQIwADAZBgkqhkiG9w0BCQMxDAYKKwYBBAGCNwIBBDAcBgorBgEEAYI3AgEL
-# MQ4wDAYKKwYBBAGCNwIBFTAjBgkqhkiG9w0BCQQxFgQUGl0GTyPTQH4P9nCvWOfd
-# Nzy0ytcwDQYJKoZIhvcNAQEBBQAEggEAhtZdhJUTVI7hMuV8FyD8kiYJzSTn90ov
-# wm9FaipRrx7tG9IQLtzyTSUJvLABEAbktf03lCnTlNoUoDIq3cakpwpvFMQgz/TX
-# KL0cQIvVx9sT+t3HlmhiC+kq1ofkeFMS3dLye8HqWrUTYyWEZY9SlMwCuFBlJP3p
-# wEgX/21+LIBNHBvgvsl8hd22TNGz0ukCT9ViaB7YjbYBHXYqREhs89G5I3UGiTEO
-# C+gXBiYzVq07Y3jPcLps6FK08uCWrWjrJaL3AfbTXtN7kMWsbtpGUd6/RJDNBJt8
-# 6iEVxu2DJUFVhgcTdh59h1byGDFdcoM8w7yShpcSkMUUzTFdhNN00g==
+# MQ4wDAYKKwYBBAGCNwIBFTAjBgkqhkiG9w0BCQQxFgQU1DLYVyVTYmEQsaIj0PUf
+# NP2N+6owDQYJKoZIhvcNAQEBBQAEggEARG6b3trUGKR0EnfocKhZSEV55rQSJIEr
+# vwgOP+Uh6jb0WJ+ZI6G834NgYG3utsB3Y11/vSYcwYLXTqdmW3kkAJkJcALyOhn+
+# mxDdOeUuWN1UXNEOCqmO45qcm0Ar6XEyUc4DxZkzGc9zUVLcOnFRjit2QCJwHrqA
+# CYP5gL98bASiTtEO4XyKfqmJtr4/u+FICOaAodCjuuQ6civBCTNHNrCWs3dF2cvx
+# vrdeaFlAV4nhvaJbBn4/UX5+VPXEx3JOl3HgIFQQuARhUtbk8oWKzJO6vSTlFAAC
+# gth69zcu837nASebJmRUTzdWKI4xWj1nR31ZkyLKDtyKOaiqMortkg==
 # SIG # End signature block
