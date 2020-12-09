@@ -1,7 +1,7 @@
 ﻿########################################################
 # Name: BackupScript.ps1                              
-# Version: 2.2
-# LastModified: 2020-09-02
+# Version: 2.3
+# LastModified: 2020-12-09
 # GitHub: https://github.com/vvildcard/PowerShell-Backup-Script
 # 
 # 
@@ -41,25 +41,23 @@ Param(
     [string]$LoggingLevel = 2, # LoggingLevel only for Output in Powershell Window, 1=smart, 3=Heavy
 
     # Zip
-    [bool]$Zip = $True, # Zip the backup. 
-    [bool]$Use7ZIP = $False, # Make sure 7-Zip is installed. (https://7-zip.org)
+    [switch]$Zip, # Zip the backup. 
+    [switch]$Use7ZIP = $False, # Make sure 7-Zip is installed. (https://7-zip.org)
     [string]$7zPath = "$env:ProgramFiles\7-Zip\7z.exe",
     [string]$Versions = "2", # Number of backups you want to keep. 
 
     # Staging -- Only used if Zip = $True.
-    [bool]$UseStaging = $True, # If $False: $Destination will be used for Staging.
+    [switch]$UseStaging, # If set, $Destination will be used for Staging.
     [string]$StagingDir = "$TempDir\Staging", # Temporary location zipping. 
-    [bool]$ClearStaging = $True, # If $True: Delete StagingDir after backup. 
+    [switch]$ClearStaging, # If $True: Delete StagingDir after backup. 
 
     # Email
-    [bool]$SendEmail = $False, # $True will send report via email (SMTP send)
+    [switch]$SendEmail = $False, # $True will send report via email (SMTP send)
     [string]$EmailTo = 'test@domain.com', # List of recipients. For multiple users, use "User01 &lt;user01@example.com&gt;" ,"User02 &lt;user02@example.com&gt;"
     [string]$EmailFrom = 'from@domain.com', # Sender/ReplyTo
     [string]$EmailSMTP = 'smtp.domain.com' # SMTP server address
 )
 
-### STOP - No changes from here
-### STOP - No changes from here
 
 # Parse Excluded directories
 $ExcludeString = ""
@@ -396,8 +394,8 @@ Write-au2matorLog -Type WARNING -Text "Backup $BackupName Finished"
 # SIG # Begin signature block
 # MIIPVAYJKoZIhvcNAQcCoIIPRTCCD0ECAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUJ2DD51QVjuvmUhcC/y/TtZ/u
-# eqWgggzFMIIFwDCCA6igAwIBAgITFgAAAAR84b1HddGLUAAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUmlcV2g9YXmFXjtedxov2eo3e
+# 4cSgggzFMIIFwDCCA6igAwIBAgITFgAAAAR84b1HddGLUAAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAdMRswGQYDVQQDExJFVFNNTU9NTlBLSU9SMDItQ0EwHhcNMTUwOTIz
 # MTYxNTA1WhcNMzEwOTIxMjAzMDIzWjBJMRMwEQYKCZImiZPyLGQBGRYDY29tMRcw
 # FQYKCZImiZPyLGQBGRYHamhhY29ycDEZMBcGA1UEAxMQRVRTTU1PUEtJQ0EwMi1D
@@ -469,11 +467,11 @@ Write-au2matorLog -Type WARNING -Text "Backup $BackupName Finished"
 # FzAVBgoJkiaJk/IsZAEZFgdqaGFjb3JwMRkwFwYDVQQDExBFVFNNTU9QS0lDQTAy
 # LUNBAhNQAAaYYuNRt7asjPVHAAAABphiMAkGBSsOAwIaBQCgcDAQBgorBgEEAYI3
 # AgEMMQIwADAZBgkqhkiG9w0BCQMxDAYKKwYBBAGCNwIBBDAcBgorBgEEAYI3AgEL
-# MQ4wDAYKKwYBBAGCNwIBFTAjBgkqhkiG9w0BCQQxFgQUhlDjUtwlPO0wjA+6ZMVu
-# iJbWiswwDQYJKoZIhvcNAQEBBQAEggEAEoodKTQkoGDxe+awPjlvKG/ImTYq4Hty
-# +dMFcQ9ar9pw1RB678UyD8Cn8S4BeflnIbqi0geVlAbWf3yVNyLpl8KfrTE4sW6P
-# 8aKotI6ap7+kYfFKjJDwfyxwzihqhT81XXLRWjqEuRuhALEoY5YGfVz40MDiHlZe
-# 8JLC/EJD1yYTcyHQCBR+ovf4nETuB4ktPZ4Rkcuu4RhXdPpIVfXg6OJ+nJKn4a1U
-# p0e1iCY5gj76kavMNdnHLcgTJXfZybwJJuwJlkFDQtbQD8d4AwauR+ufno2J9Ov/
-# eb//75SXmZtY304pfSV4P8SoOU2iPTXMusD3aq8ce68a8XvbMquV2A==
+# MQ4wDAYKKwYBBAGCNwIBFTAjBgkqhkiG9w0BCQQxFgQUGl0GTyPTQH4P9nCvWOfd
+# Nzy0ytcwDQYJKoZIhvcNAQEBBQAEggEAhtZdhJUTVI7hMuV8FyD8kiYJzSTn90ov
+# wm9FaipRrx7tG9IQLtzyTSUJvLABEAbktf03lCnTlNoUoDIq3cakpwpvFMQgz/TX
+# KL0cQIvVx9sT+t3HlmhiC+kq1ofkeFMS3dLye8HqWrUTYyWEZY9SlMwCuFBlJP3p
+# wEgX/21+LIBNHBvgvsl8hd22TNGz0ukCT9ViaB7YjbYBHXYqREhs89G5I3UGiTEO
+# C+gXBiYzVq07Y3jPcLps6FK08uCWrWjrJaL3AfbTXtN7kMWsbtpGUd6/RJDNBJt8
+# 6iEVxu2DJUFVhgcTdh59h1byGDFdcoM8w7yShpcSkMUUzTFdhNN00g==
 # SIG # End signature block
