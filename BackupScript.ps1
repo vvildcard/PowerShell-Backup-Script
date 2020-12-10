@@ -1,6 +1,6 @@
 ﻿########################################################
 # Name: BackupScript.ps1                              
-# Version: 2.3.3
+# Version: 2.4
 # LastModified: 2020-12-09
 # GitHub: https://github.com/vvildcard/PowerShell-Backup-Script
 # 
@@ -37,7 +37,8 @@ Param(
         # To hard-code the source paths, set the above line to: $BackupDirs = @("C:\path\to\backup", "C:\another\path\")
     [Parameter(Mandatory=$True)][string][Alias("d")]$Destination, # Backup to this path. Can be a UNC path (\\server\share)
         # To hard-code the destination, set the above line to: $Destination = "C:\path\to\put\the\backup"
-    [string[]]$ExcludeDirs=@("$env:SystemDrive\Users\.*\AppData\Local", "$env:SystemDrive\Users\.*\AppData\LocalLow"), # This list of Directories will not be copied. Comma-delimited. 
+    [string[]]$DefaultExcludedDirs=@("$env:SystemDrive\Users\.*\AppData\Local", "$env:SystemDrive\Users\.*\AppData\LocalLow", ".*\.git\.*"), # This list of Directories will not be copied. Comma-delimited. 
+    [string[]]$ExcludeDirs=@(""), # Second set of excluded directories for the user to define.
 
     # Logging
     [string]$TempDir = "$env:TEMP\BackupScript", # Temporary location for logging and zipping. 
@@ -68,7 +69,7 @@ Param(
 
 # Parse Excluded directories
 $ExcludeString = ""
-foreach ($Entry in $ExcludeDirs) {
+foreach ($Entry in ($ExcludeDirs, $DefaultExcludedDirs)) {  # Clean-up and Convert each Directory to regex
     # Exclude the directory itself
     $Temp = "^" + $Entry.Replace("\", "\\") + "$"
     $ExcludeString += $Temp + "|"
@@ -154,16 +155,36 @@ Function NewBackupDir {
 
 # Delete the oldest Directory backup
 Function RemoveDirBackup {
-    $RemoveFolder = Get-ChildItem $Destination | Where-Object { ($_.Attributes -eq "Directory") -and ($_.Name -like "Backup-????-??-??-??????") } | Sort-Object -Property CreationTime -Descending:$False | Select-Object -First 1
-    $RemoveFolder.FullName | Remove-Item -Recurse -Force 
-    Write-au2matorLog -Type INFO -Text "Deleted oldest directory backup: $RemoveFolder"
+    # Count the previous directory backups and remove the oldest (if needed)
+    Write-au2matorLog -Type DEBUG -Text "Checking if there are more than $Versions backup directories in the Destination"
+    $BackupDirCount = (Get-ChildItem $Destination | Where-Object { $_.Attributes -eq "Directory" -and ($_.Name -like "Backup-????-??-??-??????") }).count
+
+    if ($BackupDirCount -gt $Versions) { 
+        Write-au2matorLog -Type INFO -Text "Found $count Directory Backups"
+        $RemoveFolder = Get-ChildItem $Destination | Where-Object { ($_.Attributes -eq "Directory") -and ($_.Name -like "Backup-????-??-??-??????") } | Sort-Object -Property CreationTime -Descending:$False | Select-Object -First 1
+        if ($RemoveFolder) {
+            $RemoveFolder.FullName | Remove-Item -Recurse -Force 
+            Write-au2matorLog -Type INFO -Text "Deleted oldest directory backup: $RemoveFolder"
+        }
+    } else {
+        Write-au2matorLog -Type DEBUG -Text "Not enough previous backup directories found. Skipping backup deletion."
+    }
 }
 
 # Delete the oldest Zip backup
-Function RemoveZip {
-    $RemoveZip = Get-ChildItem $Destination | Where-Object { $_.Attributes -eq "Archive" -and $_.Name -like "Backup-????-??-??-??????.zip" } | Sort-Object -Property CreationTime -Descending:$False | Select-Object -First 1
-    $RemoveZip.FullName | Remove-Item -Recurse -Force 
-    Write-au2matorLog -Type INFO -Text "Deleted oldest zip backup: $RemoveZip"
+Function RemoveZipBackup {
+    Write-au2matorLog -Type DEBUG -Text "Checking if there are more than $Versions Zip in the Destination"
+    $ZipBackupCount = (Get-ChildItem $Destination | Where-Object { $_.Attributes -eq "Archive" -and $_.Name -like "Backup-????-??-??-??????.zip" }).count
+    if ($ZipBackupCount -gt $Versions) {
+        Write-au2matorLog -Type INFO -Text "Found $ZipBackupCount Zip backups"
+        $RemoveZip = Get-ChildItem $Destination | Where-Object { $_.Attributes -eq "Archive" -and $_.Name -like "Backup-????-??-??-??????.zip" } | Sort-Object -Property CreationTime -Descending:$False | Select-Object -First 1
+        if ($RemoveZip) {
+            $RemoveZip.FullName | Remove-Item -Recurse -Force 
+            Write-au2matorLog -Type INFO -Text "Deleted oldest zip backup: $RemoveZip"
+        }
+    } else {
+        Write-au2matorLog -Type DEBUG -Text "Not enough previous backup zips found. Skipping backup deletion."
+    }
 }
 
 # Check if DestinationBackupDir and Destination is available
@@ -237,11 +258,8 @@ Function MakeBackup {
     Remove-Variable errItem
     Remove-Variable errItems
 
-    # Count the previous directory backups and remove the oldest (if needed)
-    if ($count -gt $Versions) { 
-        Write-au2matorLog -Type INFO -Text "Found $count Directory Backups"
-        RemoveDirBackup
-    }
+    # Before copy files, remove the oldest previous backup (if needed)
+    RemoveDirBackup
 
     # Copy files to the backup location. 
     Write-au2matorLog -Type WARNING -Text "Copying files to $DestinationBackupDir"
@@ -301,10 +319,6 @@ NewBackupDir
 Write-au2matorLog -Type INFO -Text "----------------------"
 Write-au2matorLog -Type DEBUG -Text "Start the Script"
 
-# Check if BackupDir needs to be cleaned
-$Count = (Get-ChildItem $Destination | Where-Object { $_.Attributes -eq "Directory" }).count
-Write-au2matorLog -Type DEBUG -Text "Checking if there are more than $Versions Directories in the Destination"
-
 # Start the Backup
 $CheckDir = CheckDir
 if (-not $CheckDir) {
@@ -319,13 +333,9 @@ if (-not $CheckDir) {
 
     if ($Zip) {
         $ZipStartDate = Get-Date
-        $CountZip = (Get-ChildItem $Destination | Where-Object { $_.Attributes -eq "Archive" -and $_.Extension -eq ".zip" }).count
         # Count the previous zip backups and remove the oldest (if needed)
-        Write-au2matorLog -Type DEBUG -Text "Checking if there are more than $Versions Zip in the Destination"
-        if ($CountZip -gt $Versions) {
-            Write-au2matorLog -Type INFO -Text "Found $CountZip Zip backups"
-            RemoveZip 
-        }
+        RemoveZipBackup
+
         Write-au2matorLog -Type INFO -Text "Compressing the Backup Destination"
         if ($Use7ZIP) {
             Write-au2matorLog -Type DEBUG -Text "Use 7-Zip"
@@ -400,8 +410,8 @@ Write-au2matorLog -Type WARNING -Text "Backup $BackupName Finished"
 # SIG # Begin signature block
 # MIIPVAYJKoZIhvcNAQcCoIIPRTCCD0ECAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUliLu0L7aguT7x9ei0GCt2D/Q
-# Cv2gggzFMIIFwDCCA6igAwIBAgITFgAAAAR84b1HddGLUAAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUJ/nz4zZVn8EAqC59Hm7zn8EU
+# 3EqgggzFMIIFwDCCA6igAwIBAgITFgAAAAR84b1HddGLUAAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAdMRswGQYDVQQDExJFVFNNTU9NTlBLSU9SMDItQ0EwHhcNMTUwOTIz
 # MTYxNTA1WhcNMzEwOTIxMjAzMDIzWjBJMRMwEQYKCZImiZPyLGQBGRYDY29tMRcw
 # FQYKCZImiZPyLGQBGRYHamhhY29ycDEZMBcGA1UEAxMQRVRTTU1PUEtJQ0EwMi1D
@@ -473,11 +483,11 @@ Write-au2matorLog -Type WARNING -Text "Backup $BackupName Finished"
 # FzAVBgoJkiaJk/IsZAEZFgdqaGFjb3JwMRkwFwYDVQQDExBFVFNNTU9QS0lDQTAy
 # LUNBAhNQAAaYYuNRt7asjPVHAAAABphiMAkGBSsOAwIaBQCgcDAQBgorBgEEAYI3
 # AgEMMQIwADAZBgkqhkiG9w0BCQMxDAYKKwYBBAGCNwIBBDAcBgorBgEEAYI3AgEL
-# MQ4wDAYKKwYBBAGCNwIBFTAjBgkqhkiG9w0BCQQxFgQU+HShchr/ZmHp46Wh/UK2
-# Ni/7LLowDQYJKoZIhvcNAQEBBQAEggEAqb9m1rlGOBssf2NAVR9aLAbMhUp2x9uN
-# lf2afe9LpC3gTFCUMtL5jSCpofby5ixngLxmp5Fcs3KAKFOH3llbZSRA5OTW4aNj
-# 5Uc7YRB054sVKJbePJrdCSki5eRCP6h7ZvCda4+JnQ55tYFcDp87xe/58aZ/QJPA
-# G4Xo4nJgMJfmcVWwlAHTt5RU8DmYsEkhQmT9iFsyVYBwgASE1/vJrn2zi/QsTaVh
-# 9VgZCU+vMMpqD6Gciu4v1M1wpOV9ZuofM0tvKz/vxXkPnM6ki/l+qJdhVhFkFIH9
-# ezS9D8OikIumEckzVdAsCw4LYdU3XNWoXXoHQdnv0lMRSe9tl44Mgg==
+# MQ4wDAYKKwYBBAGCNwIBFTAjBgkqhkiG9w0BCQQxFgQUBXz+A660xduFylaSG9gX
+# 2lXdHx8wDQYJKoZIhvcNAQEBBQAEggEAbGtAiO1c8rABK7b7bTZRNuQsZhSTFiR7
+# pAs8aTspJf4XwNyqB2zdV5WkXKFbUOJqGZH25/2+bBlGmrLT+OyUZg9zeS4Naup7
+# 9BoTVUCs3tf926EMKyIDoVcOtAGxplJSINhaUObPtkhpKdJDf38naEhgl+RqjZ6P
+# 1n7YOmB38ZQza95P1pSqugkzSOYWYx2AXXLbbtx0OfUcB9BA0/w9W+f8LgiFdsfM
+# VKzKZLdfcPA2SHYTrs+oeJJAcEwlP2uRBVD3zDbIrt5kVAaQMQ+0e/ajEruPGSZz
+# SpXahnwpRlq/8onsFCtpfj+8Yk2FLB4hNfW9VO2KbZvpeWO+ryivPA==
 # SIG # End signature block
