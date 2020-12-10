@@ -1,7 +1,7 @@
 ﻿########################################################
 # Name: BackupScript.ps1                              
 # Version: 2.4
-# LastModified: 2020-12-09
+# LastModified: 2020-12-10
 # GitHub: https://github.com/vvildcard/PowerShell-Backup-Script
 # 
 # 
@@ -312,6 +312,78 @@ Function MakeBackup {
     }
 }
 
+# Zip Backup
+Function ZipBackup {
+    $ZipStartDate = Get-Date
+    # Count the previous zip backups and remove the oldest (if needed)
+    RemoveZipBackup
+
+    Write-au2matorLog -Type INFO -Text "Compressing the Backup Destination"
+    if ($Use7ZIP) {
+        7ZipCompression -ZipPath "$DestinationBackupDir\*" -ZipDest "$DestinationBackupDir\$ZipFileName" 
+    } else {  # Use powershell-native compression
+        PowershellCompression -ZipPath "$DestinationBackupDir\*" -ZipDest "$DestinationBackupDir\$ZipFileName" 
+    }
+
+    $ZipEnddate = Get-Date
+    $ZipSpan = $ZipEndDate - $ZipStartDate
+    $ZipDuration = "Zip duration $($ZipSpan.Hours) hours $($ZipSpan.Minutes) minutes $($ZipSpan.Seconds - $SleepTime) seconds"
+    Write-au2matorLog -Type INFO -Text "$ZipDuration"
+
+    # This would be a good place to put compression stats. 
+    # $TotalMB
+
+}
+
+# 7-Zip Compression
+Function 7ZipCompression {
+    param(
+        [string]$ZipPath,
+        [string]$ZipDest
+    )
+    Write-au2matorLog -Type DEBUG -Text "Use 7-Zip"
+    if (test-path $7zPath) { 
+        Write-au2matorLog -Type DEBUG -Text "7-Zip found: $($7zPath)!" 
+        set-alias sz "$7zPath"
+        #sz a -t7z "$directory\$zipfile" "$directory\$name"    
+    } else {
+        Write-au2matorLog -Type DEBUG -Text "Looking for 7-Zip here: $($7zPath)" 
+        Write-au2matorLog -Type ERROR -Text "7-Zip not found: Reverting to Powershell compression" 
+        $Use7ZIP = $FALSE
+    }
+    if ($Use7ZIP -and $UseStaging) { # Zip to the staging directory, then move to the destination.
+        # Usage: sz a -t7z <archive.zip> <source1> <source2> <sourceX>
+        sz a -t7z $ZipDest $ZipPath
+        Write-au2matorLog -Type INFO -Text "Moving Zip to $Destination"
+        Move-Item -Path $ZipDest -Destination $Destination
+
+    } else { # Zip straight to the BackupDir. 
+        sz a -t7z "$DestinationBackupDir\$ZipFileName" $DestinationBackupDir
+    }
+}
+
+# Powershell Compression
+Function PowershellCompression {
+    param(
+        [string]$ZipPath,
+        [string]$ZipDest
+    )
+    Write-au2matorLog -Type DEBUG -Text "Using Powershell Compress-Archive"
+    #Write-au2matorLog -Type DEBUG -Text "DestinationBackupDir = $($DestinationBackupDir)"
+    #Write-au2matorLog -Type DEBUG -Text "StagingDir = $($StagingDir)"
+    #Write-au2matorLog -Type DEBUG -Text "ZipFileName = $($ZipFileName)"
+    #Write-au2matorLog -Type DEBUG -Text "Destination = $($Destination)"
+
+    $SleepTime = 2 # Seconds
+    Write-au2matorLog -Type DEBUG -Text "Pausing for $SleepTime seconds to let things settle"
+    Start-sleep -Seconds ($SleepTime) 
+
+    Write-au2matorLog -Type DEBUG -Text "Starting compression"
+    Compress-Archive -Path $ZipPath -DestinationPath $ZipDest  -CompressionLevel Optimal -Force
+    Write-au2matorLog -Type INFO -Text "Moving Zip to $Destination"
+    Move-Item -Path $ZipDest -Destination $Destination
+}
+
 ### End of Functions
 
 # Create Backup Dir
@@ -332,58 +404,7 @@ if (-not $CheckDir) {
     Write-au2matorLog -Type INFO -Text "----------------------"
 
     if ($Zip) {
-        $ZipStartDate = Get-Date
-        # Count the previous zip backups and remove the oldest (if needed)
-        RemoveZipBackup
-
-        Write-au2matorLog -Type INFO -Text "Compressing the Backup Destination"
-        if ($Use7ZIP) {
-            Write-au2matorLog -Type DEBUG -Text "Use 7-Zip"
-            if (test-path $7zPath) { 
-                Write-au2matorLog -Type DEBUG -Text "7-Zip found: $($7zPath)!" 
-                set-alias sz "$7zPath"
-                #sz a -t7z "$directory\$zipfile" "$directory\$name"    
-            } else {
-                Write-au2matorLog -Type DEBUG -Text "Looking for 7-Zip here: $($7zPath)" 
-                Write-au2matorLog -Type ERROR -Text "7-Zip not found: Reverting to Powershell compression" 
-				$Use7ZIP = $FALSE
-            }
-            if ($Use7ZIP -and $UseStaging) { # Zip to the staging directory, then move to the destination.
-                # Usage: sz a -t7z <archive.zip> <source1> <source2> <sourceX>
-                sz a -t7z "$DestinationBackupDir\$ZipFileName" $DestinationBackupDir
-                Write-au2matorLog -Type INFO -Text "Moving Zip to $Destination"
-                Move-Item -Path "$DestinationBackupDir\$ZipFileName" -Destination $Destination
-
-            } else { # Zip straight to the BackupDir. 
-                sz a -t7z "$DestinationBackupDir\$ZipFileName" $DestinationBackupDir
-            }
-            
-        }
-		if (-not $Use7ZIP) {  # Use powershell-native compression
-			Write-au2matorLog -Type DEBUG -Text "Using Powershell Compress-Archive"
-			#Write-au2matorLog -Type DEBUG -Text "DestinationBackupDir = $($DestinationBackupDir)"
-			#Write-au2matorLog -Type DEBUG -Text "StagingDir = $($StagingDir)"
-			#Write-au2matorLog -Type DEBUG -Text "ZipFileName = $($ZipFileName)"
-			#Write-au2matorLog -Type DEBUG -Text "Destination = $($Destination)"
-
-			$SleepTime = 2 # Seconds
-			Write-au2matorLog -Type DEBUG -Text "Pausing for $SleepTime seconds to let things settle"
-			Start-sleep -Seconds ($SleepTime) 
-
-            Write-au2matorLog -Type DEBUG -Text "Starting compression"
-			Compress-Archive -Path "$DestinationBackupDir\*" -DestinationPath "$DestinationBackupDir\$ZipFileName"  -CompressionLevel Optimal -Force
-			Write-au2matorLog -Type INFO -Text "Moving Zip to $Destination"
-			Move-Item -Path "$DestinationBackupDir\$ZipFileName" -Destination $Destination
-		}
-
-        $ZipEnddate = Get-Date
-        $ZipSpan = $ZipEndDate - $ZipStartDate
-        $ZipDuration = "Zip duration $($ZipSpan.Hours) hours $($ZipSpan.Minutes) minutes $($ZipSpan.Seconds - $SleepTime) seconds"
-        Write-au2matorLog -Type INFO -Text "$ZipDuration"
-
-        # This would be a good place to put compression stats. 
-        # $TotalMB
-
+        ZipBackup
         # Clean-up Staging
         if ($ClearStaging) {
             Write-au2matorLog -Type INFO -Text "Clearing Staging"
