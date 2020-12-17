@@ -1,7 +1,7 @@
 ﻿########################################################
 # Name: BackupScript.ps1                              
-# Version: 2.4
-# LastModified: 2020-12-10
+# Version: 2.4.1
+# LastModified: 2020-12-17
 # GitHub: https://github.com/vvildcard/PowerShell-Backup-Script
 # 
 # 
@@ -263,20 +263,30 @@ Function MakeBackup {
 
     # Copy files to the backup location. 
     Write-au2matorLog -Type WARNING -Text "Copying files to $DestinationBackupDir"
+	Write-au2matorLog -Type DEBUG -Text "BackupDirs = $($BackupDirs)"
     foreach ($Backup in $BackupDirs) {
+		Write-au2matorLog -Type DEBUG -Text "Backup = $($Backup)"
         $BackupAsObject = Get-Item $Backup  # Convert the backup string path to an object to fix case sensitivity
+		Write-au2matorLog -Type DEBUG -Text "BackupAsObject = $($BackupAsObject)"
         $Files = $BackupDirFiles[$Backup]
-        # Write-au2matorLog -Type DEBUG -Text "Files = $($Files)"
+        Write-au2matorLog -Type DEBUG -Text "Files = $($Files)"
 
         foreach ($File in $Files) {
-            $RelativePath = $File.FullName.Replace("$($BackupAsObject.Parent)\", "") # RelativePath has the parent folder(s) and file name, starting from the directory being backed up. 
-            # Example: "Desktop\myfile.txt"
+            Write-au2matorLog -Type DEBUG -Text "File.FullName = $($File.FullName)"
+			if ($BackupAsObject.Parent.FullName -like "?:\") { # This IF handles directories on the root of the tree
+				$RelativePath = $File.FullName.Replace("$($BackupAsObject.Parent.Name)", "")
+				Write-au2matorLog -Type DEBUG -Text "BackupAsObject Parent = $($BackupAsObject.Parent.FullName)"
+			} else {
+				$RelativePath = $File.FullName.Replace("$($BackupAsObject.Parent.FullName)\", "")
+				Write-au2matorLog -Type DEBUG -Text "BackupAsObject Parent = $($BackupAsObject.Parent.FullName)\"
+			}  # RelativePath has the parent folder(s) and file name, starting from the directory being backed up. 
+               # Example: "Desktop\myfile.txt"
             Write-au2matorLog -Type DEBUG -Text "RelativePath = $($RelativePath)"
             try {
                 # Use New-Item to create the destination directory if it doesn't yet exist. Then copy the file.
+                Write-au2matorLog -Type DEBUG -Text "'$($File.FullName)' copied to '$DestinationBackupDir\$RelativePath'"
                 New-Item -Path (Split-Path -Path "$DestinationBackupDir\$RelativePath" -Parent) -ItemType "directory" -Force -ErrorAction SilentlyContinue | Out-Null
                 Copy-Item -LiteralPath $File.FullName -Destination "$DestinationBackupDir\$RelativePath" -Force -ErrorAction Continue | Out-Null
-                Write-au2matorLog -Type DEBUG -Text "'$($File.FullName)' copied to '$DestinationBackupDir\$RelativePath'"
             }
             catch {
                 $ErrorCount++
@@ -431,8 +441,8 @@ Write-au2matorLog -Type WARNING -Text "Backup $BackupName Finished"
 # SIG # Begin signature block
 # MIIPVAYJKoZIhvcNAQcCoIIPRTCCD0ECAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU2gE3Z4/oAUA0C9j1TkaLGkRe
-# Sp6gggzFMIIFwDCCA6igAwIBAgITFgAAAAR84b1HddGLUAAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUSxs+oBJf/0/74QNKrGsZQDag
+# 1VigggzFMIIFwDCCA6igAwIBAgITFgAAAAR84b1HddGLUAAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAdMRswGQYDVQQDExJFVFNNTU9NTlBLSU9SMDItQ0EwHhcNMTUwOTIz
 # MTYxNTA1WhcNMzEwOTIxMjAzMDIzWjBJMRMwEQYKCZImiZPyLGQBGRYDY29tMRcw
 # FQYKCZImiZPyLGQBGRYHamhhY29ycDEZMBcGA1UEAxMQRVRTTU1PUEtJQ0EwMi1D
@@ -504,11 +514,11 @@ Write-au2matorLog -Type WARNING -Text "Backup $BackupName Finished"
 # FzAVBgoJkiaJk/IsZAEZFgdqaGFjb3JwMRkwFwYDVQQDExBFVFNNTU9QS0lDQTAy
 # LUNBAhNQAAaYYuNRt7asjPVHAAAABphiMAkGBSsOAwIaBQCgcDAQBgorBgEEAYI3
 # AgEMMQIwADAZBgkqhkiG9w0BCQMxDAYKKwYBBAGCNwIBBDAcBgorBgEEAYI3AgEL
-# MQ4wDAYKKwYBBAGCNwIBFTAjBgkqhkiG9w0BCQQxFgQUogrVvvHql/oog8+qnKKz
-# P1A29VAwDQYJKoZIhvcNAQEBBQAEggEAxFFSJ/m9fbIzmzhjWxP9g4Gzq9pVxzDl
-# t2zIYWCihMiv6Uv0Wko65nGTG6SdsSE1XG8drOh9p4XtFBY/Zy1j0TO9Eq7KZPyd
-# XqntOOfUxrU+2Pyu6K4G/HbUh4Vgjm8VIcXhEj5/uDWJCTMW979UHmWUKzsnpPe3
-# 74xts80dDIswpX1Q6RTILP2ymdkhe2genudquR28HWO5v5qiNnPK7QDGMKMC+Hof
-# lGXlE/1x42G7Bm+Qvzd1DH9S9liAQh810/WdKXMUmU6amVVtW13DkZWYGNq+v3ha
-# LIw2KNHTCoZLoiWHyv4TNmBIGBZzyHvnxELxXLBKA1agbSi3Y2KY2Q==
+# MQ4wDAYKKwYBBAGCNwIBFTAjBgkqhkiG9w0BCQQxFgQU2McuOYiD+jbFycLFSsom
+# OMJnUTYwDQYJKoZIhvcNAQEBBQAEggEAyrxoiuQIyAvmMfFfBhmKy2qZEU7gHKnL
+# tZreFq/d6TcQp82ygkgPfRuHMkdIpOo8Bdi2cC2vYdxPByuYO7VLYj3lLASfb060
+# dHbdnDTXDZxOzhJyww5nDVefFJcj7zyenJ48epWCI9ouqTg1GwDSL7y1U9M3gA4j
+# lbrbJEKKA12973xu1dF4/235QHnahPIuvwiepxyiDOjfijBJ86SOo5LUSXVbrzHe
+# KYJzA4ejbgghTL9eEnGochwkR4b3UCd+6i6FIlvSVgyM5oMexlkhqDSeAiesyn/3
+# VhdcMQgR/h6qOAGt39W6Y0+JQrnihL35yvc9JYJ1A5nc3Jid5XjBPQ==
 # SIG # End signature block
