@@ -1,7 +1,7 @@
 ﻿########################################################
 # Name: BackupScript.ps1                              
-# Version: 2.4.1
-# LastModified: 2020-12-17
+# Version: 2.4.2
+# LastModified: 2021-04-15
 # GitHub: https://github.com/vvildcard/PowerShell-Backup-Script
 # 
 # 
@@ -37,7 +37,7 @@ Param(
         # To hard-code the source paths, set the above line to: $BackupDirs = @("C:\path\to\backup", "C:\another\path\")
     [Parameter(Mandatory=$True)][string][Alias("d")]$Destination, # Backup to this path. Can be a UNC path (\\server\share)
         # To hard-code the destination, set the above line to: $Destination = "C:\path\to\put\the\backup"
-    [string[]]$DefaultExcludedDirs=@("$env:SystemDrive\Users\.*\AppData\Local", "$env:SystemDrive\Users\.*\AppData\LocalLow", ".*\.git\.*"), # This list of Directories will not be copied. Comma-delimited. 
+    [string[]]$DefaultExcludedDirs=@("$env:SystemDrive\Users\*\AppData\Local", "$env:SystemDrive\Users\*\AppData\LocalLow", "*\.git\*"), # This list of Directories will not be copied. Comma-delimited. 
     [string[]]$ExcludeDirs=@(""), # Second set of excluded directories for the user to define.
 
     # Logging
@@ -51,10 +51,11 @@ Param(
     [switch]$Use7ZIP, # Make sure 7-Zip is installed. (https://7-zip.org)
     [string]$7zPath = "$env:ProgramFiles\7-Zip\7z.exe",
 
-    # Staging -- Ignored when $NoZip is specified. Staging moves all files to a temporary directory before zipping them for performance improvement,
-    #    especially when copying over a slow link (it's faster to copy a single large zip file than many small files across the network or to a USB 
-    #    device). Staging keeps all the heavy lifting on the local disk, but can also use a lot of space. You need enough space to hold the temporary
-    #    copy of the backed-up files and the ZIP of those files. 
+    # Staging -- Ignored when $NoZip is specified. Staging moves all files to a temporary directory before zipping them
+    # for performance improvement, especially when copying over a slow link (it's faster to copy a single large zip file
+    # than many small files across the network or to a USB device). Staging keeps all the heavy lifting on the local
+    # disk, but can also use a lot of space. You need enough space to hold the temporary copy of the backed-up files and
+    # the ZIP of those files. 
     [switch]$NoStaging, # Sets $UseStaging. $Destination will be used for Staging.
     [string]$StagingDir = "$TempDir\Staging", # Set your own location for staging. 
     [switch]$NoDeleteStaging, # Don't delete StagingDir after backup. 
@@ -68,18 +69,24 @@ Param(
 
 
 # Parse Excluded directories
-$ExcludeString = ""
-foreach ($Entry in ($ExcludeDirs, $DefaultExcludedDirs)) {  # Clean-up and Convert each Directory to regex
-    # Exclude the directory itself
-    $Temp = "^" + $Entry.Replace("\", "\\") + "$"
-    $ExcludeString += $Temp + "|"
+function ExcludeCleanUp($Dirs) {  # Clean-up and Convert each Directory to regex
+	foreach ($Entry in ($Dirs)) {
+        # Remove trailing backslashes and wildcards
+        while (($Entry.SubString($Entry.length-1) -eq ("*")) -or ($Entry.SubString($Entry.length-1) -eq ("\"))) {
+            $Entry = $Entry.Substring(0,$Entry.Length-1)
+        }
 
-    # Exclude the directory's children
-    $Temp = "^" + $Entry.Replace("\", "\\") + "\\.*"
-    $ExcludeString += $Temp + "|"
+        $Entry = $Entry.Replace("*", ".*")  # Convert wildcards to regex style
+		$Temp = $Entry.Replace("\", "\\") + "\\.*"  # Convert \ to regex style and add trailing \\.*
+		$ExcludeString += $Temp + "|"  # Add to the exclude list regex OR
+	}
+	$ExcludeString = $ExcludeString.Substring(0, $ExcludeString.Length - 1) # Remove the trailing |
+	Return [RegEx]$ExcludeString
 }
-$ExcludeString = $ExcludeString.Substring(0, $ExcludeString.Length - 1)
-[RegEx]$exclude = $ExcludeString
+
+$AllExcludedDirs = $DefaultExcludedDirs
+$AllExcludedDirs += $ExcludeDirs
+$Exclude = ExcludeCleanUp($AllExcludedDirs)
 
 # Set the staging directory and name the backup file or folder. 
 $BackupName = "Backup-$(Get-Date -format yyyy-MM-dd-hhmmss)"
@@ -230,9 +237,10 @@ Function MakeBackup {
 					Add-Member -InputObject $_ -NotePropertyName "ParentFullName" `
 					-NotePropertyValue ($_.FullName.Substring(0, $_.FullName.LastIndexOf("\" + $_.Name))) `
 					-PassThru -ErrorAction SilentlyContinue } | `
-				Where-Object { $_.FullName -notmatch $exclude -and $_.ParentFullName -notmatch $exclude } | `
+				Where-Object { $_.FullName -notmatch $Exclude.ToString() } | ` # -and $_.ParentFullName -notmatch $Exclude } | `
 				Get-ChildItem -Attributes !D -ErrorVariable +errItems -ErrorAction SilentlyContinue | `
-				Where-Object { $_.DirectoryName -notmatch $exclude }
+				Where-Object { $_.DirectoryName -notmatch $Exclude.ToString() }
+            #$Files = $Files | Where-Object { $_.FullName -notmatch $Exclude.ToString() }
             $BackupDirFiles.Add($Backup, $Files)
             
             $colItems = ($Files | Measure-Object -property length -sum) 
@@ -410,7 +418,7 @@ if (-not $CheckDir) {
 
     $CopyEndDate = Get-Date
     $CopySpan = $CopyEnddate - $BackupStartDate
-    Write-au2matorLog -Type INFO -Text "Copy duration $($CopySpan.Hours) hours $($CopySpan.Minutes) minutes $($CopySpan.Seconds) seconds"
+    Write-au2matorLog -Type INFO -Text "`nCopy duration $($CopySpan.Hours) hours $($CopySpan.Minutes) minutes $($CopySpan.Seconds) seconds"
     Write-au2matorLog -Type INFO -Text "----------------------"
 
     if ($Zip) {
