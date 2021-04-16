@@ -85,7 +85,9 @@ function ExcludeCleanUp($Dirs) {  # Clean-up and Convert each Directory to regex
 }
 
 $AllExcludedDirs = $DefaultExcludedDirs
-$AllExcludedDirs += $ExcludeDirs
+if ($ExcludeDirs.length -gt 2) {
+    $AllExcludedDirs += $ExcludeDirs
+}
 $Exclude = ExcludeCleanUp($AllExcludedDirs)
 
 # Set the staging directory and name the backup file or folder. 
