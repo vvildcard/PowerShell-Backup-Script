@@ -129,11 +129,11 @@ function BackupPrep () {
     if ($script:NoDeleteStaging) { $script:ClearStaging = $False } else { $script:ClearStaging = $True }
     Write-au2matorLog -Type DEBUG -Text "ClearStaging = $($ClearStaging)"
     if ($script:UseStaging -and $script:Zip) {
-        $script:DestinationBackupDir = "$script:StagingDir"
+        $script:TempBackupDir = "$script:StagingDir"
     } else {
-        $script:DestinationBackupDir = "$script:Destination\$script:BackupName"
+        $script:TempBackupDir = "$script:Destination\$script:BackupName"
     }
-    Write-au2matorLog -Type DEBUG -Text "DestinationBackupDir = $($DestinationBackupDir)"
+    Write-au2matorLog -Type DEBUG -Text "TempBackupDir = $($TempBackupDir)"
 }
 
 # Parse Excluded Directories into RegEx
@@ -155,13 +155,13 @@ function ExcludeCleanUp($Dirs) {  # Clean-up and Convert each Directory to regex
 }
 
 
-# Create the DestinationBackupDir
+# Create the TempBackupDir
 Function NewBackupDir {
-    if (Test-Path $DestinationBackupDir) {
-        Write-au2matorLog -Type DEBUG -Text "Backup/Staging directory already exists: $DestinationBackupDir"
+    if (Test-Path $TempBackupDir) {
+        Write-au2matorLog -Type DEBUG -Text "Backup/Staging directory already exists: $TempBackupDir"
     } else {
-        New-Item -Path $DestinationBackupDir -ItemType Directory -ErrorAction SilentlyContinue | Out-Null
-        Write-au2matorLog -Type INFO -Text "Created backup/staging directory: $DestinationBackupDir"
+        New-Item -Path $TempBackupDir -ItemType Directory -ErrorAction SilentlyContinue | Out-Null
+        Write-au2matorLog -Type INFO -Text "Created backup/staging directory: $TempBackupDir"
     }
 }
 
@@ -199,18 +199,18 @@ Function RemoveZipBackup {
     }
 }
 
-# Check if DestinationBackupDir and Destination is available
+# Check if TempBackupDir and Destination is available
 function CheckDir {
     Write-au2matorLog -Type INFO -Text "Checking if Destination exists"
-    if (!(Test-Path $DestinationBackupDir)) {
-        Write-au2matorLog -Type ERROR -Text "$DestinationBackupDir does not exist"
+    if (!(Test-Path $TempBackupDir)) {
+        Write-au2matorLog -Type ERROR -Text "$TempBackupDir does not exist"
         return $False
     }
     if (!(Test-Path $Destination)) {
         Write-au2matorLog -Type ERROR -Text "$Destination does not exist"
         return $False
     } 
-    Write-au2matorLog -Type DEBUG -Text "Backup Dirs: $($DestinationBackupDir)"
+    Write-au2matorLog -Type DEBUG -Text "Backup Dirs: $($TempBackupDir)"
     Write-au2matorLog -Type DEBUG -Text "Destination: $($Destination)"
     return $True
 }
@@ -275,7 +275,7 @@ Function MakeBackup {
     RemoveDirBackup
 
     # Copy files to the backup location. 
-    Write-au2matorLog -Type WARNING -Text "Copying files to $DestinationBackupDir"
+    Write-au2matorLog -Type WARNING -Text "Copying files to $TempBackupDir"
 	Write-au2matorLog -Type DEBUG -Text "BackupDirs = $($BackupDirs)"
     foreach ($Backup in $BackupDirs) {
 		Write-au2matorLog -Type DEBUG -Text "Backup = $($Backup)"
@@ -297,9 +297,9 @@ Function MakeBackup {
             Write-au2matorLog -Type DEBUG -Text "RelativePath = $($RelativePath)"
             try {
                 # Use New-Item to create the destination directory if it doesn't yet exist. Then copy the file.
-                Write-au2matorLog -Type DEBUG -Text "'$($File.FullName)' copied to '$DestinationBackupDir\$RelativePath'"
-                New-Item -Path (Split-Path -Path "$DestinationBackupDir\$RelativePath" -Parent) -ItemType "directory" -Force -ErrorAction SilentlyContinue | Out-Null
-                Copy-Item -LiteralPath $File.FullName -Destination "$DestinationBackupDir\$RelativePath" -Force -ErrorAction Continue | Out-Null
+                Write-au2matorLog -Type DEBUG -Text "'$($File.FullName)' copied to '$TempBackupDir\$RelativePath'"
+                New-Item -Path (Split-Path -Path "$TempBackupDir\$RelativePath" -Parent) -ItemType "directory" -Force -ErrorAction SilentlyContinue | Out-Null
+                Copy-Item -LiteralPath $File.FullName -Destination "$TempBackupDir\$RelativePath" -Force -ErrorAction Continue | Out-Null
             }
             catch {
                 $ErrorCount++
@@ -343,9 +343,9 @@ Function ZipBackup {
 
     Write-au2matorLog -Type INFO -Text "Compressing the Backup Destination"
     if ($Use7ZIP) {
-        7ZipCompression -ZipPath "$DestinationBackupDir\*" -ZipDest "$DestinationBackupDir\$ZipFileName" 
+        7ZipCompression -ZipPath "$TempBackupDir\*" -ZipDest "$TempBackupDir\$ZipFileName" 
     } else {  # Use powershell-native compression
-        PowershellCompression -ZipPath "$DestinationBackupDir\*" -ZipDest "$DestinationBackupDir\$ZipFileName" 
+        PowershellCompression -ZipPath "$TempBackupDir\*" -ZipDest "$TempBackupDir\$ZipFileName" 
     }
 
     $ZipEnddate = Get-Date
@@ -381,7 +381,7 @@ Function 7ZipCompression {
         Move-Item -Path $ZipDest -Destination $Destination
 
     } else { # Zip straight to the BackupDir. 
-        sz a -t7z "$DestinationBackupDir\$ZipFileName" $DestinationBackupDir
+        sz a -t7z "$TempBackupDir\$ZipFileName" $TempBackupDir
     }
 }
 
@@ -392,7 +392,7 @@ Function PowershellCompression {
         [string]$ZipDest
     )
     Write-au2matorLog -Type DEBUG -Text "Using Powershell Compress-Archive"
-    #Write-au2matorLog -Type DEBUG -Text "DestinationBackupDir = $($DestinationBackupDir)"
+    #Write-au2matorLog -Type DEBUG -Text "TempBackupDir = $($TempBackupDir)"
     #Write-au2matorLog -Type DEBUG -Text "StagingDir = $($StagingDir)"
     #Write-au2matorLog -Type DEBUG -Text "ZipFileName = $($ZipFileName)"
     #Write-au2matorLog -Type DEBUG -Text "Destination = $($Destination)"
@@ -411,12 +411,13 @@ Function PowershellCompression {
 
 
 ### Begin Main
+Write-au2matorLog -Type INFO -Text "----------------------"
+Write-au2matorLog -Type DEBUG -Text "Start the Script"
+
 BackupPrep
 
 # Create Backup Dir
 NewBackupDir
-Write-au2matorLog -Type INFO -Text "----------------------"
-Write-au2matorLog -Type DEBUG -Text "Start the Script"
 
 # Parse Excluded Directories
 $AllExcludedDirs = $DefaultExcludedDirs
@@ -446,12 +447,12 @@ if (-not $CheckDir) {
         # Clean-up Staging
         if ($ClearStaging) {
             Write-au2matorLog -Type INFO -Text "Clearing Staging"
-            Get-ChildItem -Path $DestinationBackupDir -Recurse -Force | Remove-Item -Confirm:$False -Recurse -Force
+            Get-ChildItem -Path $TempBackupDir -Recurse -Force | Remove-Item -Confirm:$False -Recurse -Force
         }
 
-        # Clean-up DestinationBackupDir --- REMOVING: Combine this concept with the Staging concept. 
-        Get-ChildItem -Path $DestinationBackupDir -Recurse -Force | Remove-Item -Confirm:$False -Recurse
-        Get-Item -Path $DestinationBackupDir | Remove-Item -Confirm:$False -Recurse
+        # Clean-up TempBackupDir --- REMOVING: Combine this concept with the Staging concept. 
+        Get-ChildItem -Path $TempBackupDir -Recurse -Force | Remove-Item -Confirm:$False -Recurse
+        Get-Item -Path $TempBackupDir | Remove-Item -Confirm:$False -Recurse
     }
 
     $TotalEndDate = Get-Date
@@ -460,6 +461,8 @@ if (-not $CheckDir) {
     Write-au2matorLog -Type INFO -Text "$TotalDuration"
 
 }
+
+### End Main
 
 Write-au2matorLog -Type WARNING -Text "Backup $BackupName Finished"
 
