@@ -1,6 +1,6 @@
 ﻿########################################################
 # Name: BackupScript.ps1                              
-# Version: 2.4.3
+# Version: 2.5.0
 # LastModified: 2021-04-19
 # GitHub: https://github.com/vvildcard/PowerShell-Backup-Script
 # 
@@ -68,41 +68,6 @@ Param(
 )
 
 
-# Parse Excluded directories
-function ExcludeCleanUp($Dirs) {  # Clean-up and Convert each Directory to regex
-	foreach ($Entry in ($Dirs)) {
-        # Remove trailing backslashes and wildcards
-        while (($Entry.SubString($Entry.length-1) -eq ("*")) -or ($Entry.SubString($Entry.length-1) -eq ("\"))) {
-            $Entry = $Entry.Substring(0,$Entry.Length-1)
-        }
-
-		$Entry = $Entry.Replace("\", "\\")  # Convert \ to \\ for regex
-        $Entry = $Entry.Replace(".","\.")   # Convert . to \. for regex
-        $Entry = $Entry.Replace("*", ".*")  # Convert wildcards for regex
-        $Entry += "\\.*"                    # Add trailing \\.*
-		$ExcludeString += $Entry + "|"  # Add to the exclude list regex OR
-	}
-	$ExcludeString = $ExcludeString.Substring(0, $ExcludeString.Length - 1) # Remove the trailing |
-	Return [RegEx]$ExcludeString
-}
-
-$AllExcludedDirs = $DefaultExcludedDirs
-if ($ExcludeDirs.length -gt 2) {
-    $AllExcludedDirs += $ExcludeDirs
-}
-$Exclude = ExcludeCleanUp($AllExcludedDirs)
-
-# Set the staging directory and name the backup file or folder. 
-$BackupName = "Backup-$(Get-Date -format yyyy-MM-dd-hhmmss)"
-if ($NoZip) { $Zip = $False } else { $Zip = $True; $ZipFileName = "$($BackupName).zip" }
-if ($NoStaging) { $UseStaging = $False } else { $UseStaging = $True }
-if ($NoDeleteStaging) { $ClearStaging = $False } else { $ClearStaging = $True }
-if ($UseStaging -and $Zip) {
-    $DestinationBackupDir = "$StagingDir"
-} else {
-    $DestinationBackupDir = "$Destination\$BackupName"
-}
-
 # Counters
 $Items = 0
 $Count = 0
@@ -151,6 +116,42 @@ function Write-au2matorLog {
         Add-Content -Path $logFile -Value $logEntry
     }
     if ($LoggingLevel -ge $TypeLevel) { Write-Host $Text }
+}
+
+# Backup Prep
+# Set the staging directory and name the backup file or folder. 
+function BackupPrep () {
+    $script:BackupName = "Backup-$(Get-Date -format yyyy-MM-dd-hhmmss)"
+    if ($script:NoZip) { $script:Zip = $False } else { $script:Zip = $True; $script:ZipFileName = "$($script:BackupName).zip" }
+    Write-au2matorLog -Type DEBUG -Text "Zip = $($Zip)"
+    if ($script:NoStaging) { $script:UseStaging = $False } else { $script:UseStaging = $True }
+    Write-au2matorLog -Type DEBUG -Text "UseStaging = $($UseStaging)"
+    if ($script:NoDeleteStaging) { $script:ClearStaging = $False } else { $script:ClearStaging = $True }
+    Write-au2matorLog -Type DEBUG -Text "ClearStaging = $($ClearStaging)"
+    if ($script:UseStaging -and $script:Zip) {
+        $script:DestinationBackupDir = "$script:StagingDir"
+    } else {
+        $script:DestinationBackupDir = "$script:Destination\$script:BackupName"
+    }
+    Write-au2matorLog -Type DEBUG -Text "DestinationBackupDir = $($DestinationBackupDir)"
+}
+
+# Parse Excluded Directories into RegEx
+function ExcludeCleanUp($Dirs) {  # Clean-up and Convert each Directory to regex
+	foreach ($Entry in ($Dirs)) {
+        # Remove trailing backslashes and wildcards
+        while (($Entry.SubString($Entry.length-1) -eq ("*")) -or ($Entry.SubString($Entry.length-1) -eq ("\"))) {
+            $Entry = $Entry.Substring(0,$Entry.Length-1)
+        }
+
+		$Entry = $Entry.Replace("\", "\\")  # Convert \ to \\ for regex
+        $Entry = $Entry.Replace(".","\.")   # Convert . to \. for regex
+        $Entry = $Entry.Replace("*", ".*")  # Convert wildcards for regex
+        $Entry += "\\.*"                    # Add trailing \\.*
+		$ExcludeString += $Entry + "|"  # Add to the exclude list regex OR
+	}
+	$ExcludeString = $ExcludeString.Substring(0, $ExcludeString.Length - 1) # Remove the trailing |
+	Return [RegEx]$ExcludeString
 }
 
 
@@ -408,10 +409,25 @@ Function PowershellCompression {
 
 ### End of Functions
 
+
+### Begin Main
+BackupPrep
+
 # Create Backup Dir
 NewBackupDir
 Write-au2matorLog -Type INFO -Text "----------------------"
 Write-au2matorLog -Type DEBUG -Text "Start the Script"
+
+# Parse Excluded Directories
+$AllExcludedDirs = $DefaultExcludedDirs
+if ($ExcludeDirs.length -gt 2) {  # Add custom exclusions (if any were given)
+    $AllExcludedDirs += $ExcludeDirs }
+Write-au2matorLog -Type INFO -Text "Excluded Directories:"  # List the excluded directories
+foreach ($d in $AllExcludedDirs) {
+    Write-au2matorLog -Type INFO -Text "$($d)" }
+$Exclude = ExcludeCleanUp($AllExcludedDirs)  # This is the final list of exceptions (in RegEx)
+Write-au2matorLog -Type DEBUG -Text "Directory Exclusions (RegEx): $($Exclude.ToString())"
+
 
 # Start the Backup
 $CheckDir = CheckDir
