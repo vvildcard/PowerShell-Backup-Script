@@ -30,7 +30,7 @@
 ### Variables
 
 Param(
-    [string]$Versions = "2", # Default number of backups you want to keep. 
+    [string]$Versions = 2, # Default number of backups you want to keep. 
 
     # Source/Dest
     [Parameter(Mandatory=$True)][string[]][Alias("b","s")]$BackupDirs, # Folders you want to backup. Comma-delimited. 
@@ -167,7 +167,7 @@ Function NewBackupDir {
 # Delete the oldest Directory backup
 Function RemoveDirBackup {
     # Count the previous directory backups and remove the oldest (if needed)
-    Write-au2matorLog -Type DEBUG -Text "Checking if there are more than $Versions backup directories in the Destination"
+    Write-au2matorLog -Type DEBUG -Text "Checking if there are more than $Versions backups in the Destination"
     $BackupDirCount = (Get-ChildItem $Destination | Where-Object { $_.Attributes -eq "Directory" -and ($_.Name -like "Backup-????-??-??-??????") }).count
 
     if ($BackupDirCount -gt $Versions) { 
@@ -178,7 +178,7 @@ Function RemoveDirBackup {
             Write-au2matorLog -Type INFO -Text "Deleted oldest directory backup: $RemoveFolder"
         }
     } else {
-        Write-au2matorLog -Type DEBUG -Text "Not enough previous backup directories found. Skipping backup deletion."
+        Write-au2matorLog -Type DEBUG -Text "Not enough previous backups found. Skipping backup deletion."
     }
 }
 
@@ -200,7 +200,7 @@ Function RemoveZipBackup {
 
 # Check if DestinationBackupDir and Destination is available
 function CheckDir {
-    Write-au2matorLog -Type INFO -Text "Checking if DestinationBackupDir and Destination exists"
+    Write-au2matorLog -Type INFO -Text "Checking if Destination exists"
     if (!(Test-Path $DestinationBackupDir)) {
         Write-au2matorLog -Type ERROR -Text "$DestinationBackupDir does not exist"
         return $False
