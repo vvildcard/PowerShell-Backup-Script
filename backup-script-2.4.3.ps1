@@ -1,7 +1,7 @@
 ﻿########################################################
 # Name: BackupScript.ps1                              
-# Version: 2.4.2
-# LastModified: 2021-04-15
+# Version: 2.4.3
+# LastModified: 2021-04-19
 # GitHub: https://github.com/vvildcard/PowerShell-Backup-Script
 # 
 # 
@@ -76,9 +76,11 @@ function ExcludeCleanUp($Dirs) {  # Clean-up and Convert each Directory to regex
             $Entry = $Entry.Substring(0,$Entry.Length-1)
         }
 
-        $Entry = $Entry.Replace("*", ".*")  # Convert wildcards to regex style
-		$Temp = $Entry.Replace("\", "\\") + "\\.*"  # Convert \ to regex style and add trailing \\.*
-		$ExcludeString += $Temp + "|"  # Add to the exclude list regex OR
+		$Entry = $Entry.Replace("\", "\\")  # Convert \ to \\ for regex
+        $Entry = $Entry.Replace(".","\.")   # Convert . to \. for regex
+        $Entry = $Entry.Replace("*", ".*")  # Convert wildcards for regex
+        $Entry += "\\.*"                    # Add trailing \\.*
+		$ExcludeString += $Entry + "|"  # Add to the exclude list regex OR
 	}
 	$ExcludeString = $ExcludeString.Substring(0, $ExcludeString.Length - 1) # Remove the trailing |
 	Return [RegEx]$ExcludeString
