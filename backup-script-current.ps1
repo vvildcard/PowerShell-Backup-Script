@@ -1,6 +1,6 @@
 ﻿########################################################
 # Name: BackupScript.ps1                              
-# Version: 2.4.3
+# Version: 2.5.0
 # LastModified: 2021-04-19
 # GitHub: https://github.com/vvildcard/PowerShell-Backup-Script
 # 
@@ -68,41 +68,6 @@ Param(
 )
 
 
-# Parse Excluded directories
-function ExcludeCleanUp($Dirs) {  # Clean-up and Convert each Directory to regex
-	foreach ($Entry in ($Dirs)) {
-        # Remove trailing backslashes and wildcards
-        while (($Entry.SubString($Entry.length-1) -eq ("*")) -or ($Entry.SubString($Entry.length-1) -eq ("\"))) {
-            $Entry = $Entry.Substring(0,$Entry.Length-1)
-        }
-
-		$Entry = $Entry.Replace("\", "\\")  # Convert \ to \\ for regex
-        $Entry = $Entry.Replace(".","\.")   # Convert . to \. for regex
-        $Entry = $Entry.Replace("*", ".*")  # Convert wildcards for regex
-        $Entry += "\\.*"                    # Add trailing \\.*
-		$ExcludeString += $Entry + "|"  # Add to the exclude list regex OR
-	}
-	$ExcludeString = $ExcludeString.Substring(0, $ExcludeString.Length - 1) # Remove the trailing |
-	Return [RegEx]$ExcludeString
-}
-
-$AllExcludedDirs = $DefaultExcludedDirs
-if ($ExcludeDirs.length -gt 2) {
-    $AllExcludedDirs += $ExcludeDirs
-}
-$Exclude = ExcludeCleanUp($AllExcludedDirs)
-
-# Set the staging directory and name the backup file or folder. 
-$BackupName = "Backup-$(Get-Date -format yyyy-MM-dd-hhmmss)"
-if ($NoZip) { $Zip = $False } else { $Zip = $True; $ZipFileName = "$($BackupName).zip" }
-if ($NoStaging) { $UseStaging = $False } else { $UseStaging = $True }
-if ($NoDeleteStaging) { $ClearStaging = $False } else { $ClearStaging = $True }
-if ($UseStaging -and $Zip) {
-    $DestinationBackupDir = "$StagingDir"
-} else {
-    $DestinationBackupDir = "$Destination\$BackupName"
-}
-
 # Counters
 $Items = 0
 $Count = 0
@@ -153,14 +118,50 @@ function Write-au2matorLog {
     if ($LoggingLevel -ge $TypeLevel) { Write-Host $Text }
 }
 
-
-# Create the DestinationBackupDir
-Function NewBackupDir {
-    if (Test-Path $DestinationBackupDir) {
-        Write-au2matorLog -Type DEBUG -Text "Backup/Staging directory already exists: $DestinationBackupDir"
+# Backup Prep
+# Set the staging directory and name the backup file or folder. 
+function BackupPrep () {
+    $script:BackupName = "Backup-$(Get-Date -format yyyy-MM-dd-hhmmss)"
+    if ($script:NoZip) { $script:Zip = $False } else { $script:Zip = $True; $script:ZipFileName = "$($script:BackupName).zip" }
+    Write-au2matorLog -Type DEBUG -Text "Zip = $($Zip)"
+    if ($script:NoStaging) { $script:UseStaging = $False } else { $script:UseStaging = $True }
+    Write-au2matorLog -Type DEBUG -Text "UseStaging = $($UseStaging)"
+    if ($script:NoDeleteStaging) { $script:ClearStaging = $False } else { $script:ClearStaging = $True }
+    Write-au2matorLog -Type DEBUG -Text "ClearStaging = $($ClearStaging)"
+    if ($script:UseStaging -and $script:Zip) {
+        $script:TempBackupDir = "$script:StagingDir"
     } else {
-        New-Item -Path $DestinationBackupDir -ItemType Directory -ErrorAction SilentlyContinue | Out-Null
-        Write-au2matorLog -Type INFO -Text "Created backup/staging directory: $DestinationBackupDir"
+        $script:TempBackupDir = "$script:Destination\$script:BackupName"
+    }
+    Write-au2matorLog -Type DEBUG -Text "TempBackupDir = $($TempBackupDir)"
+}
+
+# Parse Excluded Directories into RegEx
+function ExcludeCleanUp($Dirs) {  # Clean-up and Convert each Directory to regex
+	foreach ($Entry in ($Dirs)) {
+        # Remove trailing backslashes and wildcards
+        while (($Entry.SubString($Entry.length-1) -eq ("*")) -or ($Entry.SubString($Entry.length-1) -eq ("\"))) {
+            $Entry = $Entry.Substring(0,$Entry.Length-1)
+        }
+
+		$Entry = $Entry.Replace("\", "\\")  # Convert \ to \\ for regex
+        $Entry = $Entry.Replace(".","\.")   # Convert . to \. for regex
+        $Entry = $Entry.Replace("*", ".*")  # Convert wildcards for regex
+        $Entry += "\\.*"                    # Add trailing \\.*
+		$ExcludeString += $Entry + "|"  # Add to the exclude list regex OR
+	}
+	$ExcludeString = $ExcludeString.Substring(0, $ExcludeString.Length - 1) # Remove the trailing |
+	Return [RegEx]$ExcludeString
+}
+
+
+# Create the TempBackupDir
+Function NewBackupDir {
+    if (Test-Path $TempBackupDir) {
+        Write-au2matorLog -Type DEBUG -Text "Backup/Staging directory already exists: $TempBackupDir"
+    } else {
+        New-Item -Path $TempBackupDir -ItemType Directory -ErrorAction SilentlyContinue | Out-Null
+        Write-au2matorLog -Type WARNING -Text "Created backup/staging directory: $TempBackupDir"
     }
 }
 
@@ -198,18 +199,18 @@ Function RemoveZipBackup {
     }
 }
 
-# Check if DestinationBackupDir and Destination is available
+# Check if TempBackupDir and Destination is available
 function CheckDir {
-    Write-au2matorLog -Type INFO -Text "Checking if Destination exists"
-    if (!(Test-Path $DestinationBackupDir)) {
-        Write-au2matorLog -Type ERROR -Text "$DestinationBackupDir does not exist"
+    Write-au2matorLog -Type WARNING -Text "Checking if Destination exists"
+    if (!(Test-Path $TempBackupDir)) {
+        Write-au2matorLog -Type ERROR -Text "$TempBackupDir does not exist"
         return $False
     }
     if (!(Test-Path $Destination)) {
         Write-au2matorLog -Type ERROR -Text "$Destination does not exist"
         return $False
     } 
-    Write-au2matorLog -Type DEBUG -Text "Backup Dirs: $($DestinationBackupDir)"
+    Write-au2matorLog -Type DEBUG -Text "Backup Dirs: $($TempBackupDir)"
     Write-au2matorLog -Type DEBUG -Text "Destination: $($Destination)"
     return $True
 }
@@ -274,31 +275,31 @@ Function MakeBackup {
     RemoveDirBackup
 
     # Copy files to the backup location. 
-    Write-au2matorLog -Type WARNING -Text "Copying files to $DestinationBackupDir"
+    Write-au2matorLog -Type WARNING -Text "Copying files to $TempBackupDir"
 	Write-au2matorLog -Type DEBUG -Text "BackupDirs = $($BackupDirs)"
     foreach ($Backup in $BackupDirs) {
 		Write-au2matorLog -Type DEBUG -Text "Backup = $($Backup)"
         $BackupAsObject = Get-Item $Backup  # Convert the backup string path to an object to fix case sensitivity
-		Write-au2matorLog -Type DEBUG -Text "BackupAsObject = $($BackupAsObject)"
+		# Write-au2matorLog -Type DEBUG -Text "BackupAsObject = $($BackupAsObject)"
         $Files = $BackupDirFiles[$Backup]
-        Write-au2matorLog -Type DEBUG -Text "Files = $($Files)"
+        # Write-au2matorLog -Type DEBUG -Text "Files = $($Files)"
 
         foreach ($File in $Files) {
-            Write-au2matorLog -Type DEBUG -Text "File.FullName = $($File.FullName)"
+            # Write-au2matorLog -Type DEBUG -Text "File.FullName = $($File.FullName)"
 			if ($BackupAsObject.Parent.FullName -like "?:\") { # This IF handles directories on the root of the tree
 				$RelativePath = $File.FullName.Replace("$($BackupAsObject.Parent.Name)", "")
-				Write-au2matorLog -Type DEBUG -Text "BackupAsObject Parent = $($BackupAsObject.Parent.FullName)"
+				# Write-au2matorLog -Type DEBUG -Text "BackupAsObject Parent = $($BackupAsObject.Parent.FullName)"
 			} else {
 				$RelativePath = $File.FullName.Replace("$($BackupAsObject.Parent.FullName)\", "")
-				Write-au2matorLog -Type DEBUG -Text "BackupAsObject Parent = $($BackupAsObject.Parent.FullName)\"
+				# Write-au2matorLog -Type DEBUG -Text "BackupAsObject Parent = $($BackupAsObject.Parent.FullName)\"
 			}  # RelativePath has the parent folder(s) and file name, starting from the directory being backed up. 
                # Example: "Desktop\myfile.txt"
-            Write-au2matorLog -Type DEBUG -Text "RelativePath = $($RelativePath)"
+            # Write-au2matorLog -Type DEBUG -Text "RelativePath = $($RelativePath)"
             try {
                 # Use New-Item to create the destination directory if it doesn't yet exist. Then copy the file.
-                Write-au2matorLog -Type DEBUG -Text "'$($File.FullName)' copied to '$DestinationBackupDir\$RelativePath'"
-                New-Item -Path (Split-Path -Path "$DestinationBackupDir\$RelativePath" -Parent) -ItemType "directory" -Force -ErrorAction SilentlyContinue | Out-Null
-                Copy-Item -LiteralPath $File.FullName -Destination "$DestinationBackupDir\$RelativePath" -Force -ErrorAction Continue | Out-Null
+                Write-au2matorLog -Type DEBUG -Text "'$($File.FullName)' copied to '$TempBackupDir\$RelativePath'"
+                New-Item -Path (Split-Path -Path "$TempBackupDir\$RelativePath" -Parent) -ItemType "directory" -Force -ErrorAction SilentlyContinue | Out-Null
+                Copy-Item -LiteralPath $File.FullName -Destination "$TempBackupDir\$RelativePath" -Force -ErrorAction Continue | Out-Null
             }
             catch {
                 $ErrorCount++
@@ -342,9 +343,9 @@ Function ZipBackup {
 
     Write-au2matorLog -Type INFO -Text "Compressing the Backup Destination"
     if ($Use7ZIP) {
-        7ZipCompression -ZipPath "$DestinationBackupDir\*" -ZipDest "$DestinationBackupDir\$ZipFileName" 
+        7ZipCompression -ZipPath "$TempBackupDir\*" -ZipDest "$TempBackupDir\$ZipFileName" 
     } else {  # Use powershell-native compression
-        PowershellCompression -ZipPath "$DestinationBackupDir\*" -ZipDest "$DestinationBackupDir\$ZipFileName" 
+        PowershellCompression -ZipPath "$TempBackupDir\*" -ZipDest "$TempBackupDir\$ZipFileName" 
     }
 
     $ZipEnddate = Get-Date
@@ -380,7 +381,7 @@ Function 7ZipCompression {
         Move-Item -Path $ZipDest -Destination $Destination
 
     } else { # Zip straight to the BackupDir. 
-        sz a -t7z "$DestinationBackupDir\$ZipFileName" $DestinationBackupDir
+        sz a -t7z "$TempBackupDir\$ZipFileName" $TempBackupDir
     }
 }
 
@@ -391,7 +392,7 @@ Function PowershellCompression {
         [string]$ZipDest
     )
     Write-au2matorLog -Type DEBUG -Text "Using Powershell Compress-Archive"
-    #Write-au2matorLog -Type DEBUG -Text "DestinationBackupDir = $($DestinationBackupDir)"
+    #Write-au2matorLog -Type DEBUG -Text "TempBackupDir = $($TempBackupDir)"
     #Write-au2matorLog -Type DEBUG -Text "StagingDir = $($StagingDir)"
     #Write-au2matorLog -Type DEBUG -Text "ZipFileName = $($ZipFileName)"
     #Write-au2matorLog -Type DEBUG -Text "Destination = $($Destination)"
@@ -408,10 +409,26 @@ Function PowershellCompression {
 
 ### End of Functions
 
-# Create Backup Dir
-NewBackupDir
+
+### Begin Main
 Write-au2matorLog -Type INFO -Text "----------------------"
 Write-au2matorLog -Type DEBUG -Text "Start the Script"
+
+BackupPrep
+
+# Create Backup Dir
+NewBackupDir
+
+# Parse Excluded Directories
+$AllExcludedDirs = $DefaultExcludedDirs
+if ($ExcludeDirs.length -gt 2) {  # Add custom exclusions (if any were given)
+    $AllExcludedDirs += $ExcludeDirs }
+Write-au2matorLog -Type WARNING -Text "Excluded Directories:"  # List the excluded directories
+foreach ($d in $AllExcludedDirs) {
+    Write-au2matorLog -Type WARNING -Text "`t$d" }
+$Exclude = ExcludeCleanUp($AllExcludedDirs)  # This is the final list of exceptions (in RegEx)
+Write-au2matorLog -Type DEBUG -Text "Directory Exclusions (RegEx): $($Exclude.ToString())"
+
 
 # Start the Backup
 $CheckDir = CheckDir
@@ -430,12 +447,12 @@ if (-not $CheckDir) {
         # Clean-up Staging
         if ($ClearStaging) {
             Write-au2matorLog -Type INFO -Text "Clearing Staging"
-            Get-ChildItem -Path $DestinationBackupDir -Recurse -Force | Remove-Item -Confirm:$False -Recurse -Force
+            Get-ChildItem -Path $TempBackupDir -Recurse -Force | Remove-Item -Confirm:$False -Recurse -Force
         }
 
-        # Clean-up DestinationBackupDir --- REMOVING: Combine this concept with the Staging concept. 
-        Get-ChildItem -Path $DestinationBackupDir -Recurse -Force | Remove-Item -Confirm:$False -Recurse
-        Get-Item -Path $DestinationBackupDir | Remove-Item -Confirm:$False -Recurse
+        # Clean-up TempBackupDir --- REMOVING: Combine this concept with the Staging concept. 
+        Get-ChildItem -Path $TempBackupDir -Recurse -Force | Remove-Item -Confirm:$False -Recurse
+        Get-Item -Path $TempBackupDir | Remove-Item -Confirm:$False -Recurse
     }
 
     $TotalEndDate = Get-Date
@@ -445,6 +462,8 @@ if (-not $CheckDir) {
 
 }
 
+### End Main
+
 Write-au2matorLog -Type WARNING -Text "Backup $BackupName Finished"
 
 #Write-Host "Press any key to close ..."
@@ -453,8 +472,8 @@ Write-au2matorLog -Type WARNING -Text "Backup $BackupName Finished"
 # SIG # Begin signature block
 # MIIPVAYJKoZIhvcNAQcCoIIPRTCCD0ECAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUFZeYE8LG9MAlad1zNXIDOhOl
-# tx6gggzFMIIFwDCCA6igAwIBAgITFgAAAAR84b1HddGLUAAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUcEibCCOtBBj6NnsccDYgMIYV
+# +IygggzFMIIFwDCCA6igAwIBAgITFgAAAAR84b1HddGLUAAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAdMRswGQYDVQQDExJFVFNNTU9NTlBLSU9SMDItQ0EwHhcNMTUwOTIz
 # MTYxNTA1WhcNMzEwOTIxMjAzMDIzWjBJMRMwEQYKCZImiZPyLGQBGRYDY29tMRcw
 # FQYKCZImiZPyLGQBGRYHamhhY29ycDEZMBcGA1UEAxMQRVRTTU1PUEtJQ0EwMi1D
@@ -526,11 +545,11 @@ Write-au2matorLog -Type WARNING -Text "Backup $BackupName Finished"
 # FzAVBgoJkiaJk/IsZAEZFgdqaGFjb3JwMRkwFwYDVQQDExBFVFNNTU9QS0lDQTAy
 # LUNBAhNQAAaYYuNRt7asjPVHAAAABphiMAkGBSsOAwIaBQCgcDAQBgorBgEEAYI3
 # AgEMMQIwADAZBgkqhkiG9w0BCQMxDAYKKwYBBAGCNwIBBDAcBgorBgEEAYI3AgEL
-# MQ4wDAYKKwYBBAGCNwIBFTAjBgkqhkiG9w0BCQQxFgQUVLq4cmSSr+sONgWfYY4Q
-# A1+sjmEwDQYJKoZIhvcNAQEBBQAEggEAY5T4rdkCB1Ab9mLqAymVKX4DSWQDK52G
-# uAKVi6nEn0xjA7eT/HeZKlUDZV/kvBl3ap7bsvzASGYmHb06s/zjy5bFPSVF4E1B
-# BAS7A+0L+B0oAptJG1Vq5FZM5A9ZKhpDXNRUHzcFIaFTimyWn4Ok6QKge03H3UWv
-# 86gYaEA/OoxPjOQ7m0QvsG4w2MJ0tEXXoSd/hY9Pn6JPaSzZvubt0alforF+Pvjv
-# zB3iUJ+SzU3rm9GJ2mN/amx0fP9FaUixm+kYgDxngocyU9c/ljdj9BM3u6bLW/w5
-# TSV+C5UITuvcwmjjoNtT1oE3qEQq23YRoEr1w5xRpDv4T32qZFRBEw==
+# MQ4wDAYKKwYBBAGCNwIBFTAjBgkqhkiG9w0BCQQxFgQU3abYZBposBYAGzsTwRdf
+# YAyjoYIwDQYJKoZIhvcNAQEBBQAEggEAJ2/RnSSJU/jVbPgik3bTGweYVpJ09Ozt
+# atC0DVuJJI6fcxdaRfiFEhMsks9OE9eVzIJCVakKJagOydl3M/tQ9PErJDngxXVK
+# QKB1LKT44Y9WTeKIyOlegm7qlXWb0XPxc57O2hE/AtmtH7wrMjoaUP70Z2iNE35k
+# MagHP6XwQcL8n8FQ53zaT23J81K2qiYp9jNAlZ5/29tjQWf9qrb2fywHeNb1kyof
+# CMMEAomhIi/SkKAt/GthtjJSeirOurhjugzoW6JNDoAoOkgtCkxS1dXd2c64LXSN
+# 66vazb2wQMTHHUoogHbHHdSxUtBiKSsKAgf+EibYI50CGGkSJCvwmw==
 # SIG # End signature block
