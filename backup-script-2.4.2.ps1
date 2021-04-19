@@ -38,7 +38,7 @@ Param(
     [Parameter(Mandatory=$True)][string][Alias("d")]$Destination, # Backup to this path. Can be a UNC path (\\server\share)
         # To hard-code the destination, set the above line to: $Destination = "C:\path\to\put\the\backup"
     [string[]]$DefaultExcludedDirs=@("$env:SystemDrive\Users\*\AppData\Local", "$env:SystemDrive\Users\*\AppData\LocalLow", "*\.git\*"), # This list of Directories will not be copied. Comma-delimited. 
-    [string[]]$ExcludeDirs=@(""), # Second set of excluded directories for the user to define.
+    [string[]]$ExcludeDirs, # Second set of excluded directories for the user to define.
 
     # Logging
     [string]$TempDir = "$env:TEMP\BackupScript", # Temporary location for logging and zipping. 
