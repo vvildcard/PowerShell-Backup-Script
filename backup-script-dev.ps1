@@ -161,7 +161,7 @@ Function NewBackupDir {
         Write-au2matorLog -Type DEBUG -Text "Backup/Staging directory already exists: $TempBackupDir"
     } else {
         New-Item -Path $TempBackupDir -ItemType Directory -ErrorAction SilentlyContinue | Out-Null
-        Write-au2matorLog -Type INFO -Text "Created backup/staging directory: $TempBackupDir"
+        Write-au2matorLog -Type WARNING -Text "Created backup/staging directory: $TempBackupDir"
     }
 }
 
@@ -201,7 +201,7 @@ Function RemoveZipBackup {
 
 # Check if TempBackupDir and Destination is available
 function CheckDir {
-    Write-au2matorLog -Type INFO -Text "Checking if Destination exists"
+    Write-au2matorLog -Type WARNING -Text "Checking if Destination exists"
     if (!(Test-Path $TempBackupDir)) {
         Write-au2matorLog -Type ERROR -Text "$TempBackupDir does not exist"
         return $False
@@ -280,21 +280,21 @@ Function MakeBackup {
     foreach ($Backup in $BackupDirs) {
 		Write-au2matorLog -Type DEBUG -Text "Backup = $($Backup)"
         $BackupAsObject = Get-Item $Backup  # Convert the backup string path to an object to fix case sensitivity
-		Write-au2matorLog -Type DEBUG -Text "BackupAsObject = $($BackupAsObject)"
+		# Write-au2matorLog -Type DEBUG -Text "BackupAsObject = $($BackupAsObject)"
         $Files = $BackupDirFiles[$Backup]
-        Write-au2matorLog -Type DEBUG -Text "Files = $($Files)"
+        # Write-au2matorLog -Type DEBUG -Text "Files = $($Files)"
 
         foreach ($File in $Files) {
-            Write-au2matorLog -Type DEBUG -Text "File.FullName = $($File.FullName)"
+            # Write-au2matorLog -Type DEBUG -Text "File.FullName = $($File.FullName)"
 			if ($BackupAsObject.Parent.FullName -like "?:\") { # This IF handles directories on the root of the tree
 				$RelativePath = $File.FullName.Replace("$($BackupAsObject.Parent.Name)", "")
-				Write-au2matorLog -Type DEBUG -Text "BackupAsObject Parent = $($BackupAsObject.Parent.FullName)"
+				# Write-au2matorLog -Type DEBUG -Text "BackupAsObject Parent = $($BackupAsObject.Parent.FullName)"
 			} else {
 				$RelativePath = $File.FullName.Replace("$($BackupAsObject.Parent.FullName)\", "")
-				Write-au2matorLog -Type DEBUG -Text "BackupAsObject Parent = $($BackupAsObject.Parent.FullName)\"
+				# Write-au2matorLog -Type DEBUG -Text "BackupAsObject Parent = $($BackupAsObject.Parent.FullName)\"
 			}  # RelativePath has the parent folder(s) and file name, starting from the directory being backed up. 
                # Example: "Desktop\myfile.txt"
-            Write-au2matorLog -Type DEBUG -Text "RelativePath = $($RelativePath)"
+            # Write-au2matorLog -Type DEBUG -Text "RelativePath = $($RelativePath)"
             try {
                 # Use New-Item to create the destination directory if it doesn't yet exist. Then copy the file.
                 Write-au2matorLog -Type DEBUG -Text "'$($File.FullName)' copied to '$TempBackupDir\$RelativePath'"
@@ -423,9 +423,9 @@ NewBackupDir
 $AllExcludedDirs = $DefaultExcludedDirs
 if ($ExcludeDirs.length -gt 2) {  # Add custom exclusions (if any were given)
     $AllExcludedDirs += $ExcludeDirs }
-Write-au2matorLog -Type INFO -Text "Excluded Directories:"  # List the excluded directories
+Write-au2matorLog -Type WARNING -Text "Excluded Directories:"  # List the excluded directories
 foreach ($d in $AllExcludedDirs) {
-    Write-au2matorLog -Type INFO -Text "$($d)" }
+    Write-au2matorLog -Type WARNING -Text "`t$d" }
 $Exclude = ExcludeCleanUp($AllExcludedDirs)  # This is the final list of exceptions (in RegEx)
 Write-au2matorLog -Type DEBUG -Text "Directory Exclusions (RegEx): $($Exclude.ToString())"
 
